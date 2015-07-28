@@ -9,7 +9,7 @@ _____
 A template describes a set of objects that can be parameterized and processed to produce a list of objects for creation by OpenShift. The objects to create can include anything that users have permission to create within a project, for example services, build configurations, and deployment configurations. A template may also define a set of labels to apply to every object defined in the template.
 _____
 
-This means that tipically in a template we will have:
+This means that typically in a template we will have:
 
 * A set of resources that will be created as part of "creating/deploying" the template
 * A set of values for the parameters defined in the template
@@ -241,7 +241,7 @@ Now we need to describe all the configuration related to how we are going to dep
 ----
 <1> These are the labels that will be set for this DeploymentConfig.
 <2> This is the name that will identify this DeploymentConfig
-<3> Specification for the DeploymentConfig. Everything inside this section describes the DeploymentConfig's configuration.
+<3> Specification for the DeploymentConfig. Everything inside this section describes the DeploymentConfig configuration.
 <4> Number of instances that should be created for this component/deployment
 <5> This should be the same as *name* above.
 <6> Strategy to use when deploying a new version of the application in case it is triggered. As defined in *triggers*
@@ -338,9 +338,9 @@ Now we need to describe all the configuration related to how we are going to dep
 image::template_files/res-OSE_Templates_blog_2_database.png[align="center"]
 
 === Linking the components together
-As this example, uses 2 pods, one as the frontend application (web), and another as a database, we need to link both containers, so that we do not need to do any manual extra configuration after the deployment is made for the fronend to be able to access the database. We need to inject into the frontend DeploymentConfig values relative from the database DeploymentConfig.
+As this example, uses 2 pods, one as the frontend application (web), and another as a database, we need to link both containers, so that we do not need to do any manual extra configuration after the deployment is made for the frontend to be able to access the database. We need to inject into the frontend DeploymentConfig values relative from the database DeploymentConfig.
 
-The database DeploymentConfig expects 3 ENV variables to set up the username, password and database as https://docs.openshift.com/enterprise/3.0/using_images/db_images/mysql.html#environment-variables[documented here]. (There are other variables for configuraing the MySQL database behavior)
+The database DeploymentConfig expects 3 ENV variables to set up the username, password and database as https://docs.openshift.com/enterprise/3.0/using_images/db_images/mysql.html#environment-variables[documented here]. (There are other variables for configuring the MySQL database behavior).
 
 We define these ENV variables in the database container spec section:
 
@@ -432,7 +432,7 @@ And then define our ENV variables in the web pod like this:
 Now, with this configuration, our web component will be able to access our database component.
 
 == Redeployment configuration
-Now we need to configure when our application will be deployed/redeployed. We are going to modify the DeploymentConfigs that we have created to set some additional behavior.
+Now we need to configure when our application will be deployed/redeployed. We are going to modify the DeploymentConfig that we have created to set some additional behavior.
 
 The deployment for the web component will be triggered if:
 
@@ -507,12 +507,14 @@ For the database deployment, it will only be deployed if the base image is chang
 image::template_files/res-OSE_Templates_blog_2_dc.png[align="center"]
 
 == Exposing the application
-Now we have everything that is needed for our application to be running, but we might want to access parts any of the components of our application either internally (for troubleshooting, inter applications communications) using for it https://docs.openshift.com/enterprise/3.0/architecture/core_concepts/pods_and_services.html#services[Services] or externally, defining for it, https://docs.openshift.com/enterprise/3.0/dev_guide/routes.html[Routes].
+Now we have everything that is needed for our application to be running.
+
+Now we need to expose some functionality of the components of our application, either internally, using https://docs.openshift.com/enterprise/3.0/architecture/core_concepts/pods_and_services.html#services[Services] for this purpose, or externally, by defining https://docs.openshift.com/enterprise/3.0/dev_guide/routes.html[Routes].
 
 === Create services
 For every port in any of the pods that we need access, we need to create a Service. We've shown above the Service for the database component (pod) that was exposing port 3306.
 
-The following service defines access to the web component using HTTP tranport on port 8080:
+The following service defines access to the web component using HTTP transport on port 8080:
 
 [source,json,numbered]
 ----
@@ -547,7 +549,7 @@ The following service defines access to the web component using HTTP tranport on
 <4> Name of the service
 <5> Labels decorating this service
 
-This service defines access to the web component using HTTPS tranport on port 8443:
+This service defines access to the web component using HTTPS transport on port 8443:
 
 [source,json,numbered]
 ----
@@ -585,7 +587,7 @@ This service defines access to the web component using HTTPS tranport on port 84
 image::template_files/res-OSE_Templates_blog_2_services.png[align="center"]
 
 === Create routes
-Now that our web component has a service, we can create a Route for those services, and provide with an exteranl way of accessing our web component in a DNS name registered for our platform.
+Now that our web component has a service, we can create a Route for those services, and provide with an external way of accessing our web component in a DNS name registered for our platform.
 
 This is the definition of a normal (non tls) Route. Routers are listening on port 80 for standard HTTP based traffic.
 
@@ -613,7 +615,7 @@ This is the definition of a normal (non tls) Route. Routers are listening on por
 }
 ----
 <1> Name of the Route
-<2> Labels decarating this Route
+<2> Labels decorating this Route
 <3> DNS entry for this route
 <4> Service defining the endpoints
 
@@ -646,7 +648,7 @@ This is the definition of the secure Route. Routers are listening on port 443 fo
 }
 ----
 <1> Name of the Route
-<2> Labels decarating this Route
+<2> Labels decorating this Route
 <3> DNS entry for this route
 <4> Service defining the endpoints
 <5> As this is a secure route, it defines the tls behavior. Passing all the secure traffic to the backend untouched.
@@ -655,7 +657,7 @@ image::template_files/res-OSE_Templates_blog_2_routes.png[align="center"]
 
 == Labeling the template
 Now, we should have a set of resources that we want to create as part of our "application" or "deployment" (Sometimes how we name it can be confusing).
-As we want to identify univoquely the resources we are deploying as a whole, it is important that all of them have at least one label for this purpose. In the previous code we have set in all of the resources a label of:
+As we want to identify univocally the resources we are deploying as a whole, it is important that all of them have at least one label for this purpose. In the previous code we have set in all of the resources a label of:
 
 [source, json]
 ----
@@ -700,7 +702,7 @@ First thing we need to identify is what will be the information in the template 
 === Set the parameter placeholders
 Once we know the parameters that we will be setting, we will replace the values with a parameter placeholder, so when we process the template, the provided values replace the placeholders.
 
-A property placeholder will loke like:
+A property placeholder will look like:
 
 [source]
 ----
@@ -763,7 +765,7 @@ And we will something like the following for one of our BuildConfig:
 === Create the parameters
 Once we have set all the placeholders in the resources, we will create a section in the template for the parameters. There will be https://docs.openshift.com/enterprise/3.0/architecture/core_concepts/templates.html#parameters[2 types of parameters]:
 
-* Parameters with autogenerated values (using a regexp like expression)
+* Parameters with auto generated values (using a regexp like expression)
 * Parameters with default values (maybe empty value)
 
 ----
@@ -824,14 +826,14 @@ $ oc create -f my_template.json -n openshift
 ----
 
 === Registering the template for use in a Project
-We will execute the creation of the template as a user in the current project. (The user will need to have the appropriate rols to create "Template" resources in the current project)
+We will execute the creation of the template as a user in the current project. (The user will need to have the appropriate roles to create "Template" resources in the current project)
 
 [source, bash]
 ----
 oc create -f my_template.json
 ----
 
-If the user belongs to multiple projetcs, and wants to create the template in a different project from the one he's currently working on, he can do it with *-n <project>*.
+If the user belongs to multiple projects, and wants to create the template in a different project from the one he's currently working on, he can do it with *-n <project>*.
 
 [source, bash]
 ----
@@ -846,7 +848,7 @@ Before using a template, we need to know:
 * the expected parameters
 
 === List all the available templates
-For viewing all the available templates for use (using the CLI) we will have to, list the templates in the "openshift project" and in the users current project.
+For viewing all the available templates for use (using the CLI) we will have to, list the templates in the "openshift project" and in the user`s current project.
 
 [source, bash]
 ----
@@ -1038,8 +1040,11 @@ If we want to do both commands in one step, we can just pipe the output of the *
 $ oc process jws-tomcat7-mysql-sti -n openshift -v APPLICATION_NAME=helloworld,GIT_URI=https://github.com/jboss-openshift/openshift-examples,GIT_CONTEXT_DIR=helloworld,APPLICATION_HOSTNAME=helloworld.cloudapps.example.com | oc create -f -
 ----
 
-== Caveats - Things you should remember
-Lastly, I will provide you with a list of things you need to remember.
+== Things you should remember
+Finally, some important things you should remember when creating templates.
 
-
-* Templates can be shared or per-project
+* When the resources in a template are created, if there is a BuildConfiguration defined, it will only start an automated build if there is an ImageChange trigger defined
+* Templates can be shared or per-project, and common templates are in the *openshift* namespace/project.
+* Currently there is no ability to set a Readme on templates, so be as verbose and complete in the template's description.
+* Once the resources in a template are processed and deployed, can be modified with the CLI.
+* You should constrain the cpu and memory a container in a pod can use. 
