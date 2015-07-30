@@ -36,15 +36,15 @@ A build is a process of creating runnable images to be used on OpenShift. A buil
 ** Source-To-Image: Your application source will be built and layered on top of a runtime
 ** Docker: Your Dockerfile will be built into an image. It must provide the application and the runtime.
 ** Custom: You provide the building method in a Docker image.
-* An output description (*Where to leave the built image*?)
+* An output description (*Where to place the built image*?)
 * A list of triggers (*When and Why will the source be built?*)
 
-These concepts above are the most important ones when talking about deploying an application on OpenShift, but we might also need to create https://docs.openshift.com/enterprise/3.0/architecture/core_concepts/pods_and_services.html#services[Services], https://docs.openshift.com/enterprise/3.0/dev_guide/routes.html[Routes], https://docs.openshift.com/enterprise/3.0/architecture/core_concepts/builds_and_image_streams.html#image-streams[ImageStreams], https://docs.openshift.com/enterprise/3.0/dev_guide/secrets.html[Secrets], https://docs.openshift.com/enterprise/3.0/dev_guide/persistent_volumes.html[PersistenVolumeClaims], ...
+These concepts above are the most important ones when talking about deploying an application on OpenShift, but we might also need to create https://docs.openshift.com/enterprise/3.0/architecture/core_concepts/pods_and_services.html#services[Services], https://docs.openshift.com/enterprise/3.0/dev_guide/routes.html[Routes], https://docs.openshift.com/enterprise/3.0/architecture/core_concepts/builds_and_image_streams.html#image-streams[ImageStreams], https://docs.openshift.com/enterprise/3.0/dev_guide/secrets.html[Secrets], https://docs.openshift.com/enterprise/3.0/dev_guide/persistent_volumes.html[PersistentVolumeClaims], ...
 
 == Template Walkthrough 
 Now that the have defined these OpenShift Resource Types, we are ready to create a walk through of creating a Template. 
 
-I will use a simple example with two components (web and database) that will be exposed externally. The database will have a single instance and the web can have multiple instances. Also, the web will be built from source code on Github while the database schema will be created automatically at application startup thanks to JPA, so no need to create a database schema and insert some master data. 
+I will use a simple example with two components (web and database) that will be exposed externally. The database will have a single instance and the web component can have multiple instances. Also, the web will be built from source code on Github while the database schema will be created automatically at application startup thanks to JPA, so no need to create a database schema and insert some master data. 
 We also want to deploy/redeploy our application if we change the source code of it and if we change any configuration. 
 
 This is a basic diagram of the component architecture in a traditional environment:
@@ -62,7 +62,7 @@ image::template_files/res-OSE_Templates_blog_2a.png[align="center"]
 
 
 === Building our application source
-For this example, as we have 2 components (web and database) we will need 2 container images.
+For this example, as we have 2 components (web and database) we will need 2 images.
 
 The database component will be always the same, and it will not be layering code on top, hence we do not need a BuildConfig for the database component.
 
@@ -111,7 +111,7 @@ For this we will be creating a new BuildConfig describing the build`s source, st
       },
       "triggers": [
          {
-            "type": "Github",              # <12>
+            "type": "GitHub",              # <12>
             "github": {
                "secret": "..."
             }
@@ -141,14 +141,14 @@ For this we will be creating a new BuildConfig describing the build`s source, st
 <9> Source=S2I 
 <10> And this defines which S2I builder image to use.
 <11> Defines where to leave the generated image if the build succeeds. It is placing it in our current project. 
-<12> This define that a change generated via a Github trigger (If the source code is changed) will trigger a build.
-<13> This define that a change generated via a Generic trigger (If the source code is changed) will trigger a build.
+<12> This define that a change generated via a GitHub trigger (if the source code is changed) will trigger a build.
+<13> This define that a change generated via a Generic trigger will trigger a build.
 <14> This define that an Image Change will trigger a build. This will trigger a build if the builder image changes or is updated.
 
-NOTE: S2I builder images provided by OpenShift are in openshift namespace. You can reference a builder image in any namespace you have read access from.
+NOTE: S2I builder images provided by OpenShift are in openshift namespace. You can reference a builder image in any namespace for which you have read access.
 
 NOTE: An ImageChange trigger is responsible for generating the first build once the template is processed and the resources deployed into OpenShift. This will happen when the 
-desired state in the data store is reconciled (may take up to 2 minutes)
+desired state in the data store is reconciled (may take up to 2 minutes). This will change soon, and we will be able to run a build automatically at resource creation.
 
 image::template_files/res-OSE_Templates_blog_2_bc.png[align="center"]
 
@@ -258,7 +258,8 @@ Now we need to describe all the configuration related to how we are going to dep
 
 
 NOTE: It is always recommended to set in every resource defined by a template a label of type *"application": "NAME_OF_MY_APP"* as then you
-can link resources created as part of the processing of the template
+can link resources created as part of the processing of the template. This can be done resource by resource, as described here, or all at once, as described later.
+
 
 image::template_files/res-OSE_Templates_blog_2_web.png[align="center"]
 
@@ -346,23 +347,23 @@ We define these ENV variables in the database container spec section:
 
 [source,json,numbered]
 ----
-            "spec": {
-                "containers": [
-                    {
-                        "env": [
-                            {
-                                "name": "MYSQL_USER",
-                                "value": "MYUSER"
-                            },
-                            {
-                                "name": "MYSQL_PASSWORD",
-                                "value": "MYPASSWORD"
-                            },
-                            {
-                                "name": "MYSQL_DATABASE",
-                                "value": "MYDATABASE"
-                            },
-             ....               
+"spec": {
+    "containers": [
+        {
+            "env": [
+                {
+                    "name": "MYSQL_USER",
+                    "value": "MYUSER"
+                },
+                {
+                    "name": "MYSQL_PASSWORD",
+                    "value": "MYPASSWORD"
+                },
+                {
+                    "name": "MYSQL_DATABASE",
+                    "value": "MYDATABASE"
+                },
+                ....               
 ----
 
 Now, in the web pod, we need to also inject this values as parameters. In the case of this image, documentation is not very good (at the moment), but the environment variables needed are the same. There is also an additional environment variable *DB_SERVICE_PREFIX_MAPPING* that sets where is the database located. For this, we will require to create a Service, to abstract the consumer component (the web) from the location in OpenShift of the producer component (the database). Services provides an abstraction layer for pods.
@@ -406,30 +407,33 @@ And then define our ENV variables in the web pod like this:
 
 [source,json,numbered]
 ----
-            "spec": {
-                "containers": [
-                    {
-                        "env": [
-                            {
-                                "name": "DB_SERVICE_PREFIX_MAPPING",
-                                "value": "MYAPP-mysql=DB"                  # <1>
-                            },{
-                                "name": "MYSQL_USER",
-                                "value": "MYUSER"
-                            },
-                            {
-                                "name": "MYSQL_PASSWORD",
-                                "value": "MYPASSWORD"
-                            },
-                            {
-                                "name": "MYSQL_DATABASE",
-                                "value": "MYDATABASE"
-                            },
-             ....               
+....
+"spec": {
+    "containers": [
+        {
+            "env": [
+                {
+                    "name": "DB_SERVICE_PREFIX_MAPPING",
+                    "value": "MYAPP-mysql=DB"                  # <1>
+                },{
+                    "name": "MYSQL_USER",
+                    "value": "MYUSER"
+                },
+                {
+                    "name": "MYSQL_PASSWORD",
+                    "value": "MYPASSWORD"
+                },
+                {
+                    "name": "MYSQL_DATABASE",
+                    "value": "MYDATABASE"
+                },
+                ....
 ---- 
 <1> Name of the service to use
 
 Now, with this configuration, our web component will be able to access our database component.
+
+NOTE: We will see later that there is a way of defining a common place for the values with parameters.
 
 == Redeployment configuration
 Now we need to configure when our application will be deployed/redeployed. We are going to modify the DeploymentConfig that we have created to set some additional behavior.
@@ -651,7 +655,7 @@ This is the definition of the secure Route. Routers are listening on port 443 fo
 <2> Labels decorating this Route
 <3> DNS entry for this route
 <4> Service defining the endpoints
-<5> As this is a secure route, it defines the tls behavior. Passing all the secure traffic to the backend untouched.
+<5> As this is a secure route, it defines the tls behavior. Passing all the secure traffic to the backend untouched. Certificates for ssl termination need to be provided to the web container template as an ENV or brewed into the image.
 
 image::template_files/res-OSE_Templates_blog_2_routes.png[align="center"]
 
@@ -696,6 +700,8 @@ It is time to make the template reusable, as that is the main purpose of a templ
 * Change values for parameters placeholders to make the template configurable
 * Create the parameters section for the template
 
+After we've done these 3 steps, parameters will be defined and the values will replace the placeholders when creating resources from this template. 
+
 === Identify parameters
 First thing we need to identify is what will be the information in the template we want to parameterized. Here we will be looking into things like the application name, git configuration, secrets, inter component communications configuration, DNS where to expose the Route, ...
 
@@ -709,7 +715,7 @@ A property placeholder will look like:
 ${MY_PARAMETER_NAME}
 ----
 
-And we will something like the following for one of our BuildConfig:
+And we will have something like the following for one of our BuildConfig:
 
 [source, json]
 ----
@@ -742,7 +748,7 @@ And we will something like the following for one of our BuildConfig:
       },
       "triggers": [
          {
-            "type": "Github",
+            "type": "GitHub",
             "github": {
                "secret": "${GITHUB_TRIGGER_SECRET}"
             }
@@ -792,18 +798,20 @@ Once we have set all the placeholders in the resources, we will create a section
    {
    "description": "Database user name",
       "name": "DB_USERNAME",
-      "from": "user[a-zA-Z0-9]{3}",
-      "generate": "expression"
+      "generate": "expression",
+      "from": "user[a-zA-Z0-9]{3}"
    },
    {
       "description": "Database user password",
       "name": "DB_PASSWORD",
-      "from": "[a-zA-Z0-9]{8}",
-      "generate": "expression"
+      "generate": "expression",
+      "from": "[a-zA-Z0-9]{8}"
    }
    ....
 ]   
 ----
+
+NOTE: It is important to note that we have generated a random user name and password for the database with an expression and that the values will get injected in the ENV variables for both pods (web and database).
 
 Now we are all set, we do have a template. You can see the https://github.com/jboss-openshift/application-templates/blob/ose-v1.0.0/webserver/jws-tomcat7-mysql-sti.json[full source of the template]. 
 
@@ -848,7 +856,7 @@ Before using a template, we need to know:
 * the expected parameters
 
 === List all the available templates
-For viewing all the available templates for use (using the CLI) we will have to, list the templates in the "openshift project" and in the user`s current project.
+For viewing all the available templates for use (using the CLI) we will have to, list the templates in the "openshift project" and in the user's current project.
 
 [source, bash]
 ----
@@ -1040,11 +1048,71 @@ If we want to do both commands in one step, we can just pipe the output of the *
 $ oc process jws-tomcat7-mysql-sti -n openshift -v APPLICATION_NAME=helloworld,GIT_URI=https://github.com/jboss-openshift/openshift-examples,GIT_CONTEXT_DIR=helloworld,APPLICATION_HOSTNAME=helloworld.cloudapps.example.com | oc create -f -
 ----
 
+or we can use the more appropriate command *new-app*
+
+
+=== Using new-app command
+Once we have the template, we can use a single command to process the template and create the resources, which is a much more convenient command.
+
+We can create the resources using a template that is loaded in OpenShift:
+
+[source,json]
+----
+$ oc new-app jws-tomcat7-mysql-sti -p APPLICATION_NAME=helloworld,GIT_URI=https://github.com/jboss-openshift/openshift-examples,GIT_CONTEXT_DIR=helloworld,APPLICATION_HOSTNAME=helloworld.cloudapps.example.com
+----
+
+NOTE: We can also specify *--template=jws-tomcat7-mysql-sti* instead of just the template name to be more concise.
+
+Or we can create the resources using the template json file:
+
+[source,json]
+----
+$ oc new-app my_template.json -p APPLICATION_NAME=helloworld,GIT_URI=https://github.com/jboss-openshift/openshift-examples,GIT_CONTEXT_DIR=helloworld,APPLICATION_HOSTNAME=helloworld.cloudapps.example.com
+----
+
+NOTE: We can also specify *--file=my_template.json* instead of the template file to be more concise.
+
+== Creating a template from existing resources
+Sometimes it happens that you already have some resources deployed into your project and you want to create a template out of them. OpenShift helps you on this task, and the steps you'll need will involve many of the concepts we've already described.
+
+* Create the template from resources in your project
+* Parameterize the template 
+* Deploy the template into OpenShift
+* Instantiate the template (create resources defined in the template with the parameter values supplied by the user)
+
+From all these steps, only the first one is new.
+
+=== Create a template from a project
+We can use the existing command *oc export* to define all the resources in the current project we want to export, and while doing it, we will instruct the command to create a template file, with *--template=<template_name>*.
+
+[source,json,numbered]
+----
+$ oc export --as-template=my_template
+----
+
+This will export all the resources in the current project. If we want to limit the resources that should be defined in the template, we can do so:
+
+[source,json,numbered]
+----
+// export all services to a template
+$ oc export service --all --as-template=my_template
+
+// export the services and deployment configurations labeled name=test
+oc export svc,dc -l name=test --as-template=my_template
+----
+
+Remember this will print the template in stdout, so if we want to have the template in a file, we can redirect the output into a file. We can also specify the format for the template as json or yaml.
+
+[source,json,numbered]
+----
+$ oc export -o json --as-template=my_template > my_template.json
+----
+
 == Things you should remember
 Finally, some important things you should remember when creating templates.
 
-* When the resources in a template are created, if there is a BuildConfiguration defined, it will only start an automated build if there is an ImageChange trigger defined
+* When the resources in a template are created, if there is a BuildConfiguration defined, it will only start an automated build if there is an ImageChange trigger defined. This will change in the next release and we will be able to launch a build on resource creation.
 * Templates can be shared or per-project, and common templates are in the *openshift* namespace/project.
 * Currently there is no ability to set a Readme on templates, so be as verbose and complete in the template's description.
-* Once the resources in a template are processed and deployed, can be modified with the CLI.
+* Once the resources in a template are processed and deployed, they can be modified with the CLI.
 * You should constrain the cpu and memory a container in a pod can use. 
