@@ -15,7 +15,7 @@ This means that typically in a template we will have:
 * A set of values for the parameters defined in the template
 * A set of labels to decorating the generated resources  
 
-Let's dig on what we would need to put into our template.
+Let's dig on what we cancan to put into our template.
 
 == The resources
 The first thing we need to consider when creating our template is the application that we want to create/deploy. It can consist of a single component (*just the app*) or multiple components (*frontend, backend, database, ...*). This fact will dictate the type of https://docs.openshift.com/enterprise/3.0/dev_guide/deployments.html#creating-a-deployment-configuration[*deployment configuration*] that we will be using.
@@ -27,14 +27,14 @@ A deployment configuration consists of the following key parts:
 * A deployment strategy which will be used to execute the deployment. (*How will be deployed?*)
 * A set of triggers which cause deployments to be created automatically. (*When and Why will be deployed?*)
 
-Also, we might want to layer our source code on top any of these components. This will drive the https://docs.openshift.com/enterprise/3.0/dev_guide/builds.html#defining-a-buildconfig[*build configuration*].
+Also, we might want to build our application’s source code and layer it on top any of these components. This will drive the https://docs.openshift.com/enterprise/3.0/dev_guide/builds.html#defining-a-buildconfig[*build configuration*].
 
 A build is a process of creating runnable images to be used on OpenShift. A build configuration consists of the following key parts:
 
 * A source description (*Where is your source code?*)
 * A strategy for building (*How to build your image?*)
-** Source-To-Image: Your application source will be built and layered on top of a runtime
-** Docker: Your Dockerfile will be built into an image. It must provide the application and the runtime.
+** Source-To-Image: Transform your application into a runnable docker image.
+** Docker: Your Dockerfile will be built into an image. This image will contain both, the runtime and the application already built.
 ** Custom: You provide the building method in a Docker image.
 * An output description (*Where to place the built image*?)
 * A list of triggers (*When and Why will the source be built?*)
@@ -44,12 +44,12 @@ These concepts above are the most important ones when talking about deploying an
 == Template Walkthrough 
 Now that the have defined these OpenShift Resource Types, we are ready to create a walk through of creating a Template. 
 
-I will use a simple example with two components (web and database) that will be exposed externally. The database will have a single instance and the web component can have multiple instances. Also, the web will be built from source code on Github while the database schema will be created automatically at application startup thanks to JPA, so no need to create a database schema and insert some master data. 
+I will use a simple example with two components (web and database) that will be exposed externally. Initially, we will start with a single database instance and with three instances of the web component. The web component that we are providing will be able to be scaled later if needed after the application has been created and is running in OpenShift. The database that we will be using will not be able to scale, as we are not going to define shared storage for it. Also, the web will be built from source code on Github while the database schema will be created automatically at application startup thanks to JPA, so no need to create a database schema and insert some master data. 
 We also want to deploy/redeploy our application if we change the source code of it and if we change any configuration. 
 
 This is a basic diagram of the component architecture in a traditional environment:
 
-image::template_files/res-OSE_Templates_blog_1.png[align="center"]
+image::template_files/OLD/res-OSE_Templates_blog_1.png[align="center"]
 
 NOTE: This is a simple example to demonstrate how to create a template. More complex scenarios will require more knowledge on the application. 
 
@@ -58,18 +58,18 @@ First step is to create a basic template. We need to identify what resources we 
 
 We are going to show the components layered on top of a basic OpenShift v3 architecture.
 
-image::template_files/res-OSE_Templates_blog_2a.png[align="center"]
+image::template_files/OLD/res-OSE_Templates_blog_2a.png[align="center"]
 
 
 === Building our application source
 For this example, as we have 2 components (web and database) we will need 2 images.
 
-The database component will be always the same, and it will not be layering code on top, hence we do not need a BuildConfig for the database component.
+We'll be deploying the database docker image provided, as it perfectly fits our needs. The database schema will be created by the web application at startup.
 
-The web component, on the contrary, will be layering our "source code" on top of a JBoss Web Server (Tomcat 7). We want to make sure that we will:
+The web component, on the contrary, will be layering our "source code", once built, on top of a JBoss Web Server (Tomcat 7). We want to make sure that we will:
 
-* Build a new image when there is new source for our application. This will require some configuration on our Git Server to be able to notify OpenShift of changes.
-* Build a new image when our Builder Image changes (maybe to apply a patch in the base container server)
+* Build a new image when there is new source for our application. This will require some configuration on our Git repository to be able to notify OpenShift of changes.
+* Build a new image when our Builder Image changes (maybe to apply a patch in the base container server).
 
 For this we will be creating a new BuildConfig describing the build`s source, strategy, output and triggers.
 
@@ -150,7 +150,7 @@ NOTE: S2I builder images provided by OpenShift are in openshift namespace. You c
 NOTE: An ImageChange trigger is responsible for generating the first build once the template is processed and the resources deployed into OpenShift. This will happen when the 
 desired state in the data store is reconciled (may take up to 2 minutes). This will change soon, and we will be able to run a build automatically at resource creation.
 
-image::template_files/res-OSE_Templates_blog_2_bc.png[align="center"]
+image::template_files/OLD/res-OSE_Templates_blog_2_bc.png[align="center"]
 
 === Store the image we have built
 In the previous section, we have built a new image with our application source code compiled and layered on a JBoss Web Server. This image was configured to be uploaded into the 
@@ -176,7 +176,7 @@ We create an ImageStream for this purpose.
 <2> Labels decorating our ImageStream
 
 
-image::template_files/res-OSE_Templates_blog_2_is.png[align="center"]
+image::template_files/OLD/res-OSE_Templates_blog_2_is.png[align="center"]
 
 === Describe the web component
 Now we need to describe all the configuration related to how we are going to deploy our web component. 
@@ -261,7 +261,7 @@ NOTE: It is always recommended to set in every resource defined by a template a 
 can link resources created as part of the processing of the template. This can be done resource by resource, as described here, or all at once, as described later.
 
 
-image::template_files/res-OSE_Templates_blog_2_web.png[align="center"]
+image::template_files/OLD/res-OSE_Templates_blog_2_web.png[align="center"]
 
 === Describe the database component
 Now we need to describe all the configuration related to how we are going to deploy our database component.
@@ -336,7 +336,7 @@ Now we need to describe all the configuration related to how we are going to dep
 <12> The ports this container is exposing
 <13> The triggers that will dictate on what conditions to create a new deployment. (Deploy a new version of the pod)
 
-image::template_files/res-OSE_Templates_blog_2_database.png[align="center"]
+image::template_files/OLD/res-OSE_Templates_blog_2_database.png[align="center"]
 
 === Linking the components together
 As this example, uses 2 pods, one as the frontend application (web), and another as a database, we need to link both containers, so that we do not need to do any manual extra configuration after the deployment is made for the frontend to be able to access the database. We need to inject into the frontend DeploymentConfig values relative from the database DeploymentConfig.
@@ -508,7 +508,7 @@ For the database deployment, it will only be deployed if the base image is chang
 <5> What containers will be checked for their tags
 
 
-image::template_files/res-OSE_Templates_blog_2_dc.png[align="center"]
+image::template_files/OLD/res-OSE_Templates_blog_2_dc.png[align="center"]
 
 == Exposing the application
 Now we have everything that is needed for our application to be running.
@@ -588,7 +588,7 @@ This service defines access to the web component using HTTPS transport on port 8
 <4> Name of the service
 <5> Labels decorating this service
 
-image::template_files/res-OSE_Templates_blog_2_services.png[align="center"]
+image::template_files/OLD/res-OSE_Templates_blog_2_services.png[align="center"]
 
 === Create routes
 Now that our web component has a service, we can create a Route for those services, and provide with an external way of accessing our web component in a DNS name registered for our platform.
@@ -657,7 +657,7 @@ This is the definition of the secure Route. Routers are listening on port 443 fo
 <4> Service defining the endpoints
 <5> As this is a secure route, it defines the tls behavior. Passing all the secure traffic to the backend untouched. Certificates for ssl termination need to be provided to the web container template as an ENV or brewed into the image.
 
-image::template_files/res-OSE_Templates_blog_2_routes.png[align="center"]
+image::template_files/OLD/res-OSE_Templates_blog_2_routes.png[align="center"]
 
 == Labeling the template
 Now, we should have a set of resources that we want to create as part of our "application" or "deployment" (Sometimes how we name it can be confusing).
@@ -815,12 +815,12 @@ NOTE: It is important to note that we have generated a random user name and pass
 
 Now we are all set, we do have a template. You can see the https://github.com/jboss-openshift/application-templates/blob/ose-v1.0.0/webserver/jws-tomcat7-mysql-sti.json[full source of the template]. 
 
-image::template_files/res-OSE_Templates_blog_2_final.png[align="center"]
+image::template_files/OLD/res-OSE_Templates_blog_2_final.png[align="center"]
 
 As can be seen, this template defines 7 new resources.
 
-== Registering the template
-We need to register the template for use. We need to do it with the CLI and we will be able to create it for:
+== Creating the template
+We need to create the template in OpenShift to make it ready for use. We need to do it with the CLI and we will be able to create it for:
 
 * General use
 * Only for use in a Project
@@ -999,22 +999,22 @@ To create the resources from an uploaded template using the web console:
 [start=1]
 . While in the desired project, click on the Create+ button:
 
-image::template_files/create.png["Create",align="center"]
+image::template_files/OLD/create.png["Create",align="center"]
 
 [start=2]
 . Select a template from the list of templates in your project, or provided by the global template library:
 
-image::template_files/template_selection.png["Select",align="center"]
+image::template_files/OLD/template_selection.png["Select",align="center"]
 
 [start=3]
 . View template parameters in the template creation screen:
 
-image::template_files/create_1.png["View",align="center"]
+image::template_files/OLD/create_1.png["View",align="center"]
 
 [start=4]
 . Modify template parameters in the template creation screen:
 
-image::template_files/create_2.png["Modify",align="center"]
+image::template_files/OLD/create_2.png["Modify",align="center"]
 
 [start=5]
 . Click create. This will deploy all the processed resources defined in the template in the current project.

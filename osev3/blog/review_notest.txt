@@ -1,0 +1,84 @@
+jmorales> maszulik: thanks for all the comments in the doc. I'll be busy another day :-D ALthough there are some that I'd love to discuss with you (as you probably know much better than me). But that'll be after lunch. Thanks again.
+<maszulik> jmorales: n/p, but today is my last day before PTO :/ 
+(maszulik) I'll be back only after Aug 9
+<maszulik> jmorales: although I do have a couple of suggestions in my head regarding the flow of the document
+<jmorales> maszulik:  jmorales: although I do have a couple of suggestions in my head regarding the flow of the document
+<jmorales> maszulik: can you share your suggestions? I'm wondering if it is the best approach, as after reading some of the suggestions also in doubt
+<maszulik> jmorales: sure, let me think...
+<maszulik> jmorales: I'd start with explaining what templates are, the strong points of it, why you'd want to create them
+<maszulik> jmorales: with partial examples how you do that
+<maszulik> jmorales: you have that but it's hidden down in the article, I'd move it forward, because that's the core part of your article
+<maszulik> jmorales: once you're done with this, then proceed with an example, don't try to explain everything, the article will be too much for that
+<maszulik> jmorales: I'd rather see a separate article explaining all the bits and pieces, put there just short descriptions of the objects with links to docs
+<maszulik> jmorales: additionally while building the sample you'll be explaining all the fields, with again links to swagegr docs, per each of the objects
+<maszulik> jmorales: it's important to say at the begining that template can be build from whatever object you as a user can create
+<maszulik> jmorales: and that for this example we will create ... and name all the objects you're going to describe down in the article
+<maszulik> jmorales: only after that go with all the details per object
+<jmorales> maszulik: yeah, I was wondering the same after I saw Dianne's comment. Like doing a previous article on "what are templates and why we should use them?" and then maybe go ahead with this one, restructuring some of the parts, adding good points from the comments and from what you say
+<maszulik> jmorales: create each of them as a full template, explain that when building Deployment it's reasonable to template DB user, password, etc and do that in the sample code
+<maszulik> jmorales: I woulnd't focus on pictures (they don't provide much value there), the code samples are
+<maszulik> jmorales: make sure to put a repo with the final template, that you can then point to from the article
+<maszulik> jmorales: since you'll be building one object after another in the article
+<maszulik> jmorales: it's sometimes even wise to leave out certain parts, that you feel are obvious, but be careful about that
+<jmorales> maszulik: agree with most of it
+<maszulik> jmorales: make sure to build bottom up, when describing objects, so start with a build, then deployments, services, routes
+<maszulik> jmorales: even better, start with images, they are the core element for all the subsequent objects, actually
+<jmorales> maszulik: that's what I tried (so at least one is ok)
+<jmorales> maszulik: agree. Haven't touched images
+<maszulik> jmorales: but they are the most important part, you're touching them in builds and deployments, so you need to start with them
+<maszulik> jmorales: what are they for, what's the difference between ISTag, ISImage, etc. see Steve's doubts on libra-devel in that topic
+<jmorales> maszulik: one thing I do not share with you is that pictures do not provide value. This is one of the things that usually developers think (as they read code perfectly) but the not so good developers or starters, need to see things visually, provides better understanding. not saying that my pictures are perfect, but I think they can add value to some percentage of readers that otherwise will be scared.
+<maszulik> jmorales: you can ask Steve for a review of the article, I'm pretty sure he'll be wiling to do so, he'll give you ton's of advices how to make it better, trust me I went that path already ;)
+<jmorales> maszulik: yeah, I saw that mail, but I think I still need to look further to it to understand it myself
+<jmorales> maszulik: I already have. This was sent to the evangelists team before, although I think that Steve beeing in SIngapore this week has not allowed him to review it
+<maszulik> jmorales: if you have problems understanding it, your readers will be as much confuesd as you are, make sure to get the idea, and explain it verbally
+<maszulik> jmorales: I can agree with the picture, but there are too manu of them in your article, imho
+<jmorales> maszulik: that was my intention, but I guess that I haven't achieved it (at least on round 1). We'll see in round 2.
+<jmorales> maszulik: probably :-D
+<maszulik> jmorales: I'd provide one, when describing your intention, and explaining what are the pieces needed for the application to be built on top of OpenShift
+<jmorales> maszulik: Yeah, probably that's a better option, and makes the article smaller (better to read to the end)
+<maszulik> jmorales: but I'd keep it simple, don't show any OS related stuff there, unless needed
+<jmorales> maszulik: what do u mean?
+<maszulik> jmorales: that's true as well, long articles ten to get less readers, I know that from my own observations ;)
+<maszulik> jmorales: re picture, I'd try to show the components as layers, where
+(maszulik) layer 1 - builds
+(maszulik) layer 2 - images produced by builds
+(maszulik) layer 3 - deployments using images
+(maszulik) layer 4 - service abstracting deployments
+<maszulik> jmorales: something along these lines
+<jmorales> maszulik: all in one picture?
+<maszulik> jmorales: yup, that's how I would see it
+<maszulik> jmorales: and use the actual object names on that picture, 
+<maszulik> jmorales: this should allow readers to match the objects from the picture with the ones from the template
+<jmorales> maszulik: would you use the same layout I did in my pictures for depicting an OSE env?
+<maszulik> jmorales: I don't see any point in showing OS env in that picture
+<maszulik> jmorales: OS is for running your app, you as a dev should not worry about it
+<jmorales> maszulik: ok. I'll see what I can come up with
+<maszulik> jmorales: all you care are the resources/objects you need to have for the puzzle to be complete
+<maszulik> jmorales: if you'll be still working on your article after Aug 9, I'd be happy to review it once again
+<jmorales> maszulik: I hope not, but it is a possibility, given I'll be away next week as well
+<jmorales> maszulik: thanks for all, it's been an awesome review and comments, and you've given me a lot to work on
+<maszulik> jmorales: n/p, and from my experience it'll take you at least a couple of weeks to finish the article, unless that'll be the only thing you'll be doing ;)
+<maszulik> jmorales: mine took about a month or so to completion + additional week for publication ;)
+<maszulik> jmorales: besides don't hurry, the longer you work on it, the better the article will be
+<jmorales> maszulik: appreciate your comments and help. really.
+<maszulik> jmorales: :)
+<jmorales> maszulik: ping. Something like this for the image: http://www.screencast.com/t/tdTL5kMb
+<maszulik> jmorales: looking
+<maszulik> jmorales: close, but I'd add arrows, showing that this build produces this image, and the other are "just provided"
+<maszulik> jmorales: additionally to show how a deployment is represented in a service
+<jmorales> maszulik: http://www.screencast.com/t/AEEO5SUQ  ???
+<maszulik> jmorales: yeah, but move the 'base images' to the one layer, name those Images, and put some arrows from mysql is to appropriate dc, and from tomcat to the build
+<maszulik> jmorales: change the layer titles, just images, builds, deployments, abstractions, imho
+<jmorales> maszulik: but that should be out of the template in this example, right? base images
+<jmorales> maszulik: as base images are not part of the template and are requirements as for the build, and then the build creates as output ImageStream for the build, not sure how to draw that. Should I place those ImageStreams into the Images (layer 2) and have arrow going bottom from tomcat to build and then back up again to web IS?
+<maszulik> jmorales: you're right, but don't call them base images, better call them openshift images, as they exists in openshift namesspace by recomendation 
+<maszulik> jmorales: so leave them out of your template part, but have them in the picture to show users where they came from, maybe a word of explanation in the description should be added with a link to that recommendation about importing IS into openshift namespace during install
+<jmorales> maszulik: http://www.screencast.com/t/TQGeUOyPi    Yeah, also thinking if should I depict somehow GitHub as source for the template and put it externally like base images?
+<maszulik> jmorales: you could, but that will be unnecessary addition, imho
+<jmorales> maszulik: ok. Thanks. Now that I have the picture, I can write the story arround. You can safely go on PTO :-D
+<maszulik> jmorales: thanks :D
+<jmorales> maszulik: by the way, have fun!!!
+<maszulik> jmorales: and remember botto up
+<maszulik> jmorales: sure I will !
+<jmorales> maszulik: bottom up is the only thing I got right! I use same approach with girls ;-)
