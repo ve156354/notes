@@ -12,7 +12,7 @@ As a PaaS provider you’ll need to provide users with:
 * configured usages of the runtimes for applications
 
 == Runtimes
-As OpenShift 3 relies on containers, the runtimes will be base images that provide the underlying foundation to deploy an application (provided by the user) on top of. The containers also need to be highly configurable so there is no need to provide a single image for every use case. Instead a different configuration provided to the image will make the runtime work as desired.
+As OpenShift 3 relies on containers, the runtimes will be base images that provide the underlying foundation to deploy an application (provided by the user) on top of. The containers also need to be highly configurable so there is no need to provide a single image for every use case. Instead, a different configuration provided to the image will make the runtime work as desired.
 
 OpenShift 3 provides some base images certified and ready to use out of the box:
 
@@ -25,7 +25,7 @@ OpenShift 3 provides some base images certified and ready to use out of the box:
 * https://docs.openshift.com/enterprise/3.0/using_images/xpaas_images/a_mq.html[JBoss A-MQ]
 * https://docs.openshift.com/enterprise/3.0/using_images/xpaas_images/jws.html[JBoss Web Server]
 
-OpenShift provides users with the ability to inject/layer/build source code into these images, as they are created for https://docs.openshift.com/enterprise/3.0/creating_images/s2i.html#overview[S2I (Source-2-Image)] purposes.
+OpenShift provides users with the ability to inject/layer/build source code into these images, as they are created for https://docs.openshift.com/enterprise/3.0/creating_images/s2i.html#overview[S2I (Source-To-Image)] purposes.
 
 OpenShift 3 also provides some base images with database runtimes that can be used or extended:
 
@@ -36,21 +36,21 @@ OpenShift 3 also provides some base images with database runtimes that can be us
 == Configured usages of the runtimes
 OpenShift 3 provides a set of predefined runtime use cases, that are user configurable, and allow for the deployment of applications. These predefined runtimes are modeled as *OpenShift templates*.
 
-OpenShift 3 provides the following templates that a Developer can use to simplify the build and deployment process for an application with an existing git source repository:
+OpenShift 3 provides the following templates that a Developer can use to simplify the build and deployment process for an application with an existing Git source repository:
 
 * JavaEE application running on an EAP server
-* JavaEE application running on an EAP server and using an ephemeral database (PostgreSQL, MySQL, mongoDB)
-* JavaEE application running on an EAP server and using a persistent database (PostgreSQL, MySQL, mongoDB)
+* JavaEE application running on an EAP server and using an ephemeral database (PostgreSQL, MySQL, MongoDB)
+* JavaEE application running on an EAP server and using a persistent database (PostgreSQL, MySQL, MongoDB)
 * Web application running on a Tomcat Container
-* Web application running on a Tomcat Container and using an ephemeral database (PostgreSQL, MySQL, mongoDB)
-* Web application running on a Tomcat Container and using a persistent database (PostgreSQL, MySQL, mongoDB)
+* Web application running on a Tomcat Container and using an ephemeral database (PostgreSQL, MySQL, MongoDB)
+* Web application running on a Tomcat Container and using a persistent database (PostgreSQL, MySQL, MongoDB)
 * ActiveMQ brokers with ephemeral storage
 * ActiveMQ brokers with persistent storage
-* Ephemeral database (PostgreSQL, MySQL, mongoDB)
-* Persistent database (PostgreSQL, MySQL, mongoDB)
-* Instant apps for Perl, Python, Ruby, PHP, node.js
+* Ephemeral database (PostgreSQL, MySQL, MongoDB)
+* Persistent database (PostgreSQL, MySQL, MongoDB)
+* Instant apps for Perl, Python, Ruby, PHP, Node.js
 
-NOTE: Instant apps are preconfigured example applications where the application it’s already provided.
+NOTE: Instant apps are preconfigured example applications including source code that can be forked and altered, providing a quick experience deploying an app in a popular platform.
 
 As you can probably guess, not all possible combinations and capabilities for a runtime or set of runtimes can be provided out of the box, and in many cases, the PaaS provider will have to create more of these for the end user.
 
@@ -67,12 +67,12 @@ This means that typically in a template we will have:
 * A set of values for the parameters defined in the template
 * A set of labels to describe the generated resources
 
-A template will be defined in json or yaml format, and will be loaded into OpenShift for user instantiation, also known as application creation.
+A template will be defined in JSON or YAML format, and will be loaded into OpenShift for user instantiation, also known as application creation.
 
 The templates can have global visibility scope (visible for every OpenShift project) or project visibility scope (visible only for a specific project).
 
 === Benefits of using templates
-A template provides Developers with an easy way to create all the necessary OpenShift resources for their application to work. This allows the developer to quickly deploy application without having to understand all of the internals of the OpenShift 3 platform.
+A template provides developers with an easy way to create all the necessary OpenShift resources for their application to work. This allows a developer to quickly deploy an application without having to understand all of the internals of the OpenShift 3 platform.
 
 * As a PaaS provider you have better control on what is being created and can make better usage of your resources.
 * As a PaaS provider you can define different Service Level Agreements in templates, defining the amount of host resources (cpu, memory) each and every container can consume.
