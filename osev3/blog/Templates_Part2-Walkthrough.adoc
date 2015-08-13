@@ -15,14 +15,14 @@ The deployment architecture will consist of:
 
 As the frontend tier is stateless, we will be able to deploy many JBoss EAP instances.
 
-We want to access our application in a single DNS name (e.g. mlbsparks.cloudapss.example.com).
+We want to access our application in a single DNS name (e.g. mlbsparks.cloudapps.example.com).
 
 image::template_files/OSE_Templates_blog_1.png[align="center"]
 
 == Design our template
 The first thing we will need to do is design the contents of our template. The best approach I've found so far is to think of a template as a set of layers of resources with the following structure (from bottom up):
 
-* *Openshift Images*: Base images we will be using for our containers.
+* *OpenShift Images*: Base images we will be using for our containers.
 * *Builds*: Generate an image from source code (application source or Dockerfile source).
 * *Images*: Images produced by the builds.
 * *Deployments*: What images will be deployed and how.
@@ -50,7 +50,7 @@ An ImageStreamTag is used to reference or retrieve an image for a given image st
 In our sample application, we will be using 2 base images:
 
 * for the frontend component of our application, where we will be using a S2I enabled JBoss EAP image. We will be using a specific tag, 6.4 of this image. As this image will be used for building purposes, the specific usage will be defined in the Build layer.
-* for the backend component of our application we will be using a mongodb database. We will be using the latest available image. As this image is a ready to use image, the specific usage of this image will be defined in the Deployment layer.
+* for the backend component of our application we will be using a MongoDB database. We will be using the latest available image. As this image is a ready to use image, the specific usage of this image will be defined in the Deployment layer.
 
 NOTE: Both ImageStreams are provided by OpenShift 3 out of the box, hence they are installed in the openshift project (namespace).
 
@@ -131,19 +131,19 @@ In our sample application we will be building the frontend component, layering o
    }
 }
 ----
-<1> This is the name that will identify this BuildConfig
+<1> This is the name that will identify this BuildConfig.
 <2> These are the labels that will be set for this BuildConfig.
 <3> This section defines where is the source for the build.
-<4> It defines it is source located in a Git repository
-<5> In this uri
-<6> And using this tag/branch
-<7> And this subdirectory from the repository.
+<4> It defines it is source located in a Git repository.
+<5> In this URI.
+<6> And using this tag/branch. This value is optional and defaults to “master” if not provided.
+<7> And this subdirectory from the repository. This value is optional and defaults to the root directory of the repository.
 <8> This defines which build strategy to use. 
-<9> Source=S2I 
+<9> Source=S2I.
 <10> And this defines which S2I builder image to use.
 <11> Defines where to leave the generated image if the build succeeds. It is placing it in our current project. 
-<12> This define that a change generated via a GitHub trigger (if the source code is changed) will trigger a build.
-<13> This define that a change generated via a Generic trigger will trigger a build.
+<12> This define that a change generated via a GitHub webhook trigger (if the source code is changed) will trigger a build.
+<13> This define that a change generated via a Generic webhook trigger will trigger a build.
 <14> This define that an Image Change will trigger a build. This will trigger a build if the builder image changes or is updated.
 
 For more information see https://docs.openshift.com/enterprise/3.0/architecture/core_concepts/builds_and_image_streams.html#builds[the official documentation].
@@ -199,13 +199,13 @@ A deployment configuration consists of the following key parts:
 * A set of triggers which cause deployments to be created automatically. (*When and Why will it be deployed?*)
 
 
-In our sample application we will have 2 DeploymentConfig, one for the frontend component (JavaEE application) and onother for the frontend component (mongodb).
+In our sample application we will have 2 DeploymentConfigs, one for the frontend component (JavaEE application) and another for the backend component (MongoDB).
 
 The DeploymentConfig for our frontend component will define that:
 
 * will have a pod with a single container, using the previously built mlbparks image.
 * there will be initially 1 replica
-* there will be a new deployment every time there is a new image built or there is s change in the configuration
+* there will be a new deployment every time there is a new image built or there is a change in the configuration
 * the redeployment strategy will be "Recreate", which means discard all running pods and create new ones. 
 
 
@@ -323,34 +323,36 @@ The DeploymentConfig for our frontend component will define that:
 <2> These are the labels that will describe this DeploymentConfig.
 <3> Specification for the DeploymentConfig. Everything inside this section describes the DeploymentConfig configuration.
 <4> Number of instances that should be created for this component/deployment
-<5> This should be the same as *name* above.
+<5> This should be the same as *name* (1).
 <6> Strategy to use when deploying a new version of the application in case it is triggered. As defined in *triggers*
 <7> The template defines what will be deployed as part of this deployment (the pod)
 <8> The labels to apply for the resources contained in the template (pod)
 <9> Name of the pod. Every pod instance created will have this name as prefix.
 <10> Defines the configuration (contents) of the pod
 <11> The name of the container.
-<12> The name of the image to use
-<13> What should do when deploying. As we will be building the image, we need to always pull on new deployments.
+<12> The name of the image to use. <<note12>>.
+<13> What should do when deploying. As we will be building the image, we need to always pull on new deployments. Note that if the image tag is latest, it will always pull the image by default, otherwise it will default to “IfNotPresent”.
 <14> A set of environment variables to pass to this container
 <15> The ports that the container exposes
-<16> Probe that will determine if the runtime in the container has started succesfully, and traffic can be routed to it.
+<16> Probe that will determine if the runtime in the container has started successfully, and traffic can be routed to it.
 <17> SecurityContextContraint to use for the container
 <18> The triggers that will dictate on what conditions to create a new deployment. (Deploy a new version of the pod)
 <19> Create a new deployment when the latest image tag is updated
 <20> Create a new deployment when there is a configuration change for this Resource.
 
-NOTE: It is always recommended to set in every resource defined by a template a label of type *"application": "NAME_OF_MY_APP"* as then you
-can link resources created as part of the processing of the template. This can be done resource by resource, as described here, or all at once.
+NOTE: It is always recommended to set in every resource defined by a template a label of type *"application": "NAME_OF_MY_APP"* as then you can link resources created as part of the processing of the template. This can be done resource by resource, as described here, or at once, as described later in <<labels>>.
+
+[[note12, See note]]
+NOTE: If there is an ImageChangeTrigger defined for a DeploymentConfig, the image spec's value gets substituted with the appropriate value for the image triggering the change. If you don't have an ImageChangeTrigger, then this value should be a valid docker pull spec (ie "openshift/mongodb-24-centos7").
 
 
 The DeploymentConfig for our backend component will define that:
 
-* will have a pod with a single container using the mongodb openshift base image.
+* will have a pod with a single container using the MongoDB openshift base image.
 * there will be initially 1 replica
-* there will be a new deployment every time there is a new image built or there is s change in the configuration
+* there will be a new deployment every time there is a new image built or there is a change in the configuration
 * the redeployment strategy will be "Recreate", which means discard all running pods and create new ones. 
-* have a persistent volume on the host's filesystem. (No valid for HA or host failover)
+* have a persistent volume on the host's filesystem (not valid for HA or host failover).
 
 [source,json]
 ----
@@ -358,15 +360,15 @@ The DeploymentConfig for our backend component will define that:
    "kind": "DeploymentConfig",
    "apiVersion": "v1",
    "metadata": {
-      "name": "mlbparks-mongodb",                 # <1>
+      "name": "mlbparks-MongoDB",                 # <1>
       "labels": {                                 # <2>
          "application": "mlbparks"
       }
    },
-   "spec": {
-      "replicas": 1,                              # <3>
-      "selector": {                               # <4>
-         "deploymentConfig": "mlbparks-mongodb"   # <5>
+   "spec": {                                      # <3>
+      "replicas": 1,                              # <4>
+      "selector": {                               
+         "deploymentConfig": "mlbparks-MongoDB"   # <5>
       },
       "strategy": {
          "type": "Recreate"                       # <6>
@@ -374,16 +376,16 @@ The DeploymentConfig for our backend component will define that:
       "template": {                               # <7>
          "metadata": {
             "labels": {                           # <8>
-               "deploymentConfig": "mlbparks-mongodb",
+               "deploymentConfig": "mlbparks-MongoDB",
                "application": "mlbparks"
             },
-            "name": "mlbparks-mongodb"            # <9>
+            "name": "mlbparks-MongoDB"            # <9>
          },
          "spec": {                                # <10>
             "containers": [
                {
-                  "name": "mlbparks-mongodb",         # <11>
-                  "image": "mongodb",                 # <12>
+                  "name": "mlbparks-MongoDB",         # <11>
+                  "image": "MongoDB",                 # <12>
                   "imagePullPolicy": "IfNotPresent",  # <13>
                   "env": [                            # <14>
                      {
@@ -408,8 +410,8 @@ The DeploymentConfig for our backend component will define that:
                   "resources": {},
                   "volumeMounts": [                   # <16> 
                      {
-                        "name": "mlbparks-mongodb-data",
-                        "mountPath": "/var/lib/mongodb/data"
+                        "name": "mlbparks-MongoDB-data",
+                        "mountPath": "/var/lib/MongoDB/data"
                      }
                   ],
                   "terminationMessagePath": "/dev/termination-log",
@@ -421,7 +423,7 @@ The DeploymentConfig for our backend component will define that:
             ],
             "volumes": [                              # <18>
                {
-                  "name": "mlbparks-mongodb-data",
+                  "name": "mlbparks-MongoDB-data",
                   "emptyDir": {}
                }
             ],
@@ -435,12 +437,12 @@ The DeploymentConfig for our backend component will define that:
             "imageChangeParams": {  
                "automatic": true,
                "containerNames": [
-                  "mlbparks-mongodb"
+                  "mlbparks-MongoDB"
                ],
                "from": {
                   "kind": "ImageStreamTag",
                   "namespace": "openshift",
-                  "name": "mongodb:latest"
+                  "name": "MongoDB:latest"
                }
             }
          },
@@ -455,20 +457,20 @@ The DeploymentConfig for our backend component will define that:
 <2> These are the labels that will describe this DeploymentConfig.
 <3> Specification for the DeploymentConfig. Everything inside this section describes the DeploymentConfig configuration.
 <4> Number of instances that should be created for this component/deployment
-<5> This should be the same as *name* above.
+<5> This should be the same as *name* (1).
 <6> Strategy to use when deploying a new version of the application in case it is triggered. As defined in *triggers*
 <7> The template defines what will be deployed as part of this deployment (the pod)
 <8> The labels to apply for the resources contained in the template (pod)
 <9> Name of the pod. Every pod instance created will have this name as prefix.
 <10> Defines the configuration (contents) of the pod
 <11> The name of the container.
-<12> The name of the image to use
-<13> What should do when deploying. As we will be building the image, we need to always pull on new deployments.
+<12> The name of the image to use. <<note12>>.
+<13> What should do when deploying.  We will only pull the image if it is not present, unless there is an ImageChange triggered in which case it will pull down the image, as we are using the :latest tag.
 <14> A set of environment variables to pass to this container
 <15> The ports that the container exposes
 <16> Volume mounts used in the container
 <17> SecurityContextContraint to use for the container
-<18> Volumes required for the pod
+<18> Volumes required for the pod. https://docs.openshift.com/enterprise/3.0/dev_guide/volumes.html[EmptyDir] is a temporary directory on a single machine.
 <19> The triggers that will dictate on what conditions to create a new deployment. (Deploy a new version of the pod)
 <20> Create a new deployment when the latest image tag is updated
 <21> Create a new deployment when there is a configuration change for this Resource.
@@ -484,13 +486,13 @@ A https://docs.openshift.com/enterprise/3.0/architecture/core_concepts/pods_and_
 Services are assigned an IP address and port pair that, when accessed, proxy to an appropriate backing pod. A service uses a label selector to find all the containers running that provide a certain network service on a certain port.
 
 Route::
-An OpenShift https://docs.openshift.com/enterprise/3.0/dev_guide/routes.html[route] exposes a service at a host name, like www.example.com, so that external clients can reach it by name
+An OpenShift https://docs.openshift.com/enterprise/3.0/dev_guide/routes.html[route] exposes a service at a host name, like www.example.com, so that external clients can reach it by name.
 
 PersistentVolumeClaim::
 You can make a request for storage resources using a https://docs.openshift.com/enterprise/3.0/dev_guide/persistent_volumes.html[PersistentVolumeClaim] object; the claim is paired with a volume that generally matches your request.
 
 ServiceAccount::
-https://docs.openshift.com/enterprise/3.0/dev_guide/service_accounts.html[Service accounts] provide a flexible way to control API access without sharing a regular user’s credentials
+https://docs.openshift.com/enterprise/3.0/dev_guide/service_accounts.html[Service accounts] provide a flexible way to control API access without sharing a regular user’s credentials.
 
 Secret::
 A https://docs.openshift.com/enterprise/3.0/dev_guide/secrets.html[secret] provides a mechanism to hold sensitive information such as passwords, OpenShift client config files, dockercfg files, etc. Secrets decouple sensitive content from the pods that use it and can be mounted into containers using a volume plug-in or used by the system to perform actions on behalf of a pod. 
@@ -499,7 +501,7 @@ NOTE: These are not all of the possible abstractions. Read the https://docs.open
 
 In our example, we will need a set of services abstracting the deployments:
 
-A service for the backend component (mongodb). This service will be configured to target all pods running created with a label of *deploymentConfig=mlbparks-mongodb* which happens
+A service for the backend component (MongoDB). This service will be configured to target all pods running created with a label of *deploymentConfig=mlbparks-MongoDB* which happens
 for every pod created by the DeploymentConfig specified (as we can see in the DeploymentConfig for the backend component).
 
 [source,json]
@@ -508,7 +510,7 @@ for every pod created by the DeploymentConfig specified (as we can see in the De
    "kind": "Service",
    "apiVersion": "v1",
    "metadata": {
-      "name": "mongodb",             # <1>
+      "name": "MongoDB",             # <1>
       "labels": {
          "application": "mlbparks"   # <2>
       }
@@ -521,14 +523,14 @@ for every pod created by the DeploymentConfig specified (as we can see in the De
          }
       ],
       "selector": {                  # <5> 
-         "deploymentConfig": "mlbparks-mongodb"
+         "deploymentConfig": "mlbparks-MongoDB"
       }
    }
 }
 ----
 <1> Name of the service
-<2> Labels describing this Service
-<3> Port where the Service will be listening
+<2> Labels describing this service
+<3> Port where the service will be listening
 <4> Port in the pod to route the network traffic to
 <5> Label selector for determining which pods will be target for this service
 
@@ -547,7 +549,7 @@ for every pod created by the DeploymentConfig specified (as we can see in the De
          "application": "mlbparks"       # <2> 
       },
       "annotations": {
-         "description": "Ping service for clustered applications"
+         "description": "The web server's http port"
       }
    },
    "spec": {
@@ -564,8 +566,8 @@ for every pod created by the DeploymentConfig specified (as we can see in the De
 }
 ----
 <1> Name of the service
-<2> Labels describing this Service
-<3> Port where the Service will be listening
+<2> Labels describing this service
+<3> Port where the service will be listening
 <4> Port in the pod to route the network traffic to
 <5> Label selector for determining which pods will be target for this service
 
@@ -599,12 +601,12 @@ JBoss EAP currently needs an additional service for it's internal PING service, 
 }
 ----
 <1> Name of the service
-<2> Labels describing this Service
-<3> Port where the Service will be listening
+<2> Labels describing this service
+<3> Port where the service will be listening
 <4> Port in the pod to route the network traffic to
 <5> Label selector for determining which pods will be target for this service
 
-Also, we want our application to be publicly available, so we expose the service providing http access to the frontend component of the application as a route:
+Also, we want our application to be publicly available, so we expose the service providing HTTP access to the frontend component of the application as a route:
 
 [source,json]
 ----
@@ -631,16 +633,16 @@ Also, we want our application to be publicly available, so we expose the service
 ----
 <1> Name of the route
 <2> Set of labels to describe the route
-<3> DNS name used to access our application
-<4> Defines that this is a route to a Service with the specified name
+<3> DNS name used to access our application. This DNS name needs to resolve to the ip address of the https://docs.openshift.com/enterprise/3.0/architecture/core_concepts/routes.html#routers[OpenShift router].
+<4> Defines that this is a route to a service with the specified name
 
 === The result
-This is a graphical representation of the Resources we have created for our application and that will be part of the template:
+This is a graphical representation of the resources we have created for our application and that will be part of the template:
 
 image::template_files/OSEv3-Template.png[align="center"]
 
 == Labeling the template
-Now, we should have a set of resources that we want to create as part of our "application" or "deployment" (Sometimes how we name it can be confusing).
+Now, we should have a set of resources that we want to create as part of our "application" or "deployment" (sometimes how we name it can be confusing).
 As we want to identify univocally the resources we are deploying as a whole, it is important that all of them have at least one label for this purpose. In the previous code we have set in all of the resources a label of:
 
 [source, json]
@@ -657,7 +659,35 @@ Also, we can set different labels that will help us decorate some other parts of
 
 that helps us identify which DeploymentConfig we will link a Service to.
 
-=== Why labels are important
+[[labels]]
+=== Labeling all resources in a template
+A more convenient and concise way of setting labels for the resources in a template is to set the labels to the template resource instead. These labels will be set on every resource created when processing the template.
+
+[source,json]
+----
+{
+   "kind": "Template",
+   "apiVersion": "v1",
+   "metadata": {
+      ...
+   },
+   "labels": {                    # <1>
+      "application": "mlbparks",
+      "createdBy": "template-mlbparks"  
+   },
+   "parameters": [
+      ...
+   ],
+   "objects": [
+      ...
+   ]
+}
+----
+<1> Labels to describe all resources in the template.
+
+In this example we set two labels at the template scope, one that defines that all resources with that label were created by this template, and another label to describe that all resources belongs to the “mlbparks” application. There might be more resources in the future created in the project, that were not initially created by the template, but belongs to the “mlbparks” application.
+
+=== why labels are important
 Labels can be used for filtering resources on a query, for example:
 
 [source,bash]
@@ -683,7 +713,7 @@ It is time to make the template reusable, as that is the main purpose of a templ
 After we've done these 3 steps, parameters will be defined and the values will replace the placeholders when creating resources from this template. 
 
 === Identify parameters
-First thing we need to identify is what will be the information in the template we want to parameterized. Here we will be looking into things like the application name, git configuration, secrets, inter component communications configuration, DNS where to expose the Route, ...
+First thing we need to identify is what will be the information in the template we want to parameterize. Here we will be looking into things like the application name, git configuration, secrets, inter component communications configuration, DNS where to expose the Route, ...
 
 === Set the parameter placeholders
 Once we know the parameters that we will be setting, we will replace the values with a parameter placeholder, so when we process the template, the provided values replace the placeholders.
@@ -759,6 +789,7 @@ Once we have set all the placeholders in the resources, we will create a section
 
 * Parameters with auto generated values (using a regexp like expression)
 * Parameters with default values (maybe empty value)
+* Required parameters. When a parameter is required, empty value is not valid (new in OpenShift 3.0.2).
 
 ----
    "parameters": [
@@ -813,7 +844,7 @@ Once we have set all the placeholders in the resources, we will create a section
    ]
 ----
 
-NOTE: It is important to note that we have generated a random user name and password for the database with an expression and that the values will get injected in the ENV variables for both pods (web and database).
+NOTE: It is important to note that we have generated a random user name and password for the database with an expression and that the values will get injected in the ENV variables for both pods (web and database), so they will be in sync with respect to the user and password credentials to use.
 
 Now we are all set, we do have a template. You can see the https://github.com/jorgemoralespou/openshift3mlbparks/blob/master/mlbparks-template.json[full source of the template]. 
 
@@ -856,7 +887,7 @@ Before using a template, we need to know:
 * the expected parameters
 
 === List all the available templates
-For viewing all the available templates for use (using the CLI) we will have to, list the templates in the "openshift project" and in the user's current project.
+For viewing all the available templates for use (using the CLI) we will have to list the templates in the "openshift" project and in the user's current project.
 
 [source, bash]
 ----
@@ -937,10 +968,10 @@ Object Labels: template=mlbparks
 Objects:     
     BuildConfig      ${APPLICATION_NAME}
     ImageStream      ${APPLICATION_NAME}
-    DeploymentConfig ${APPLICATION_NAME}-mongodb
+    DeploymentConfig ${APPLICATION_NAME}-MongoDB
     DeploymentConfig ${APPLICATION_NAME}
     Route      ${APPLICATION_NAME}-http-route
-    Service    mongodb
+    Service    MongoDB
     Service    ${APPLICATION_NAME}-http
     Service    ${APPLICATION_NAME}-ping
 ----
@@ -953,7 +984,7 @@ The processing of the template will create all the resources defined by the temp
 To create the resources from an uploaded template using the web console:
 
 [start=1]
-. While in the desired project, click on the Create+ button:
+. While in the desired project, click on the "Create..." button:
 
 image::template_files/create.png["Create",align="center"]
 
@@ -968,49 +999,17 @@ image::template_files/template_selection.png["Select",align="center"]
 image::template_files/create_1.png["View",align="center"]
 
 [start=4]
-. Modify template parameters in the template creation screen:
+. Modify template parameters in the template creation screen by clicking ‘edit parameters’:
 
 image::template_files/create_2.png["Modify",align="center"]
 
 [start=5]
-. Click create. This will deploy all the processed resources defined in the template in the current project.
+. Click create. This will create all the processed resources defined in the template in the current project. Sequentially, builds and deploys will happen and finally you will have all components ready to accept connections.
 
 image::template_files/app.png["Application",align="center"]
 
 === From the CLI
-Using the CLI to create the resources from a template it is a two step process:
-
-==== Processing the template
-The processing of the template will replace all the parameter place holders. We can specify our values with *-v* and a comma separated list of KEY=VALUE pairs. 
-
-[source, bash]
-----
-$ oc process mlbparks -v APPLICATION_NAME=mlbparks > my_processed_template.json
-----
-
-NOTE: By default *oc process* will output in stdout the processed resources. We will redirect the output into a file for later use.
-
-==== Creating the resources
-Now, we will use the command to create resources defined in a source file.
-
-[source, bash]
-----
-$ oc create -f my_processed_template.json
-----
-
-==== Processing and creating in a single step
-If we want to do both commands in one step, we can just pipe the output of the *process* into the *resource creation*:
-
-[source, bash]
-----
-$ oc process mlbparks -v APPLICATION_NAME=mlbparks | oc create -f -
-----
-
-or we can use the more appropriate command *new-app*
-
-
-=== Using new-app command
-Once we have the template, we can use a single command to process the template and create the resources, which is a much more convenient command.
+From command line, we can use new-app command to process the template (substitute the parameter placeholders with the values provided) and create the resources in OpenShift.
 
 We can create the resources using a template that is loaded in OpenShift:
 
@@ -1019,16 +1018,16 @@ We can create the resources using a template that is loaded in OpenShift:
 $ oc new-app mlbparks -p APPLICATION_NAME=mlbparks
 ----
 
-NOTE: We can also specify *--template=mlbparks* instead of just the template name to be more concise.
+NOTE: We can also specify *--template=mlbparks* instead of just the template name to be more precise.
 
-Or we can create the resources using the template json file:
+Or we can create the resources using the template JSON file:
 
 [source,json]
 ----
 $ oc new-app my_template.json -p APPLICATION_NAME=mlbparks
 ----
 
-NOTE: We can also specify *--file=my_template.json* instead of the template file to be more concise.
+NOTE: We can also specify *--file=my_template.json* instead of the template file to be more precise.
 
 == Creating a template from existing resources
 Sometimes it happens that you already have some resources deployed into your project and you want to create a template out of them. OpenShift helps you on this task, and the steps you'll need will involve many of the concepts we've already described.
@@ -1041,7 +1040,7 @@ Sometimes it happens that you already have some resources deployed into your pro
 From all these steps, only the first one is new.
 
 === Create a template from a project
-We can use the existing command *oc export* to define all the resources in the current project we want to export, and while doing it, we will instruct the command to create a template file, with *--template=<template_name>*.
+We can use the existing command *oc export* to define all the resources in the current project we want to export, and while doing it, we will instruct the command to create a template file, with *--as-template=<template_name>*.
 
 [source,json,numbered]
 ----
@@ -1059,12 +1058,16 @@ $ oc export service --all --as-template=my_template
 oc export svc,dc -l name=test --as-template=my_template
 ----
 
-Remember this will print the template in stdout, so if we want to have the template in a file, we can redirect the output into a file. We can also specify the format for the template as json or yaml.
+Remember this will print the template in stdout, so if we want to have the template in a file, we can redirect the output into a file. We can also specify the format for the template as JSON or YAML.
 
 [source,json,numbered]
 ----
 $ oc export -o json --as-template=my_template > my_template.json
+$ oc export -o yaml --as-template=my_template > my_template.json
 ----
+
+Note: Remember that this export step is really just the beginning of creating a template from existing resources. Once you have the template file, you'll have to modify it and adapt it as well as parameterize it to make it configurable.
+
 
 == Things you should remember
 Finally, some important things you should remember when creating templates.
@@ -1074,5 +1077,6 @@ Finally, some important things you should remember when creating templates.
 * Templates can be shared or per-project, and common templates are in the *openshift* namespace/project.
 * Currently there is no ability to set a Readme on templates, so be as verbose and complete in the template's description.
 * Once the resources in a template are processed and deployed, they can be modified with the CLI.
-* You should constrain the cpu and memory a container in a pod can use. 
+* You should constrain the CPU and memory a container in a pod can use. 
 * When the resources in a template are created, if there is a BuildConfiguration defined, it will only start an automated build if there is an ImageChange trigger defined. This will change in the next release and we will be able to launch a build on resource creation.
+* Parameterize everything a user of your template might want to customize so they can control the behavior of the template when they instantiate it.
