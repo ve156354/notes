@@ -51,6 +51,7 @@ This is a basic diagram of the component architecture in a traditional environme
 
 image::template_files/OLD/res-OSE_Templates_blog_1.png[align="center"]
 
+[icon="./template_files/note.png"]
 NOTE: This is a simple example to demonstrate how to create a template. More complex scenarios will require more knowledge on the application. 
 
 == Create your basic template
@@ -145,8 +146,10 @@ For this we will be creating a new BuildConfig describing the build`s source, st
 <13> This define that a change generated via a Generic trigger will trigger a build.
 <14> This define that an Image Change will trigger a build. This will trigger a build if the builder image changes or is updated.
 
+[icon="./template_files/note.png"]
 NOTE: S2I builder images provided by OpenShift are in openshift namespace. You can reference a builder image in any namespace for which you have read access.
 
+[icon="./template_files/note.png"]
 NOTE: An ImageChange trigger is responsible for generating the first build once the template is processed and the resources deployed into OpenShift. This will happen when the 
 desired state in the data store is reconciled (may take up to 2 minutes). This will change soon, and we will be able to run a build automatically at resource creation.
 
@@ -257,6 +260,7 @@ Now we need to describe all the configuration related to how we are going to dep
 <16> The triggers that will dictate on what conditions to create a new deployment. (Deploy a new version of the pod)
 
 
+[icon="./template_files/note.png"]
 NOTE: It is always recommended to set in every resource defined by a template a label of type *"application": "NAME_OF_MY_APP"* as then you
 can link resources created as part of the processing of the template. This can be done resource by resource, as described here, or all at once, as described later.
 
@@ -433,6 +437,7 @@ And then define our ENV variables in the web pod like this:
 
 Now, with this configuration, our web component will be able to access our database component.
 
+[icon="./template_files/note.png"]
 NOTE: We will see later that there is a way of defining a common place for the values with parameters.
 
 == Redeployment configuration
@@ -811,6 +816,7 @@ Once we have set all the placeholders in the resources, we will create a section
 ]   
 ----
 
+[icon="./template_files/note.png"]
 NOTE: It is important to note that we have generated a random user name and password for the database with an expression and that the values will get injected in the ENV variables for both pods (web and database).
 
 Now we are all set, we do have a template. You can see the https://github.com/jboss-openshift/application-templates/blob/ose-v1.0.0/webserver/jws-tomcat7-mysql-sti.json[full source of the template]. 
@@ -1030,6 +1036,7 @@ The processing of the template will replace all the parameter place holders. We 
 $ oc process jws-tomcat7-mysql-sti -n openshift -v APPLICATION_NAME=helloworld,GIT_URI=https://github.com/jboss-openshift/openshift-examples,GIT_CONTEXT_DIR=helloworld,APPLICATION_HOSTNAME=helloworld.cloudapps.example.com > my_processed_template.json
 ----
 
+[icon="./template_files/note.png"]
 NOTE: By default *oc process* will output in stdout the processed resources. We will redirect the output into a file for later use.
 
 ==== Creating the resources
@@ -1061,6 +1068,7 @@ We can create the resources using a template that is loaded in OpenShift:
 $ oc new-app jws-tomcat7-mysql-sti -p APPLICATION_NAME=helloworld,GIT_URI=https://github.com/jboss-openshift/openshift-examples,GIT_CONTEXT_DIR=helloworld,APPLICATION_HOSTNAME=helloworld.cloudapps.example.com
 ----
 
+[icon="./template_files/note.png"]
 NOTE: We can also specify *--template=jws-tomcat7-mysql-sti* instead of just the template name to be more concise.
 
 Or we can create the resources using the template json file:
@@ -1070,6 +1078,7 @@ Or we can create the resources using the template json file:
 $ oc new-app my_template.json -p APPLICATION_NAME=helloworld,GIT_URI=https://github.com/jboss-openshift/openshift-examples,GIT_CONTEXT_DIR=helloworld,APPLICATION_HOSTNAME=helloworld.cloudapps.example.com
 ----
 
+[icon="./template_files/note.png"]
 NOTE: We can also specify *--file=my_template.json* instead of the template file to be more concise.
 
 == Creating a template from existing resources
