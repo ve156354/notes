@@ -1,0 +1,246 @@
+== Working with maven repository managers in OpenShift 3
+
+
+Developing Java applications with maven is easy. Maven is a great tool for building Java applications, but it has, in my opinion, one big constraint that is that builds pull down your application dependencies from a dependency repository. By default, maven uses a dependency repository available on the internet called Maven Central. As depending on internet is not safe and secure, many organizations have introduced their own dependency managers to act as man in the middle between the building environments and the internet. These repository managers typically serve many purposes:
+
+* Act as a proxy to the public repository managers available on the internet
+* Act as repository manager for hosting the artifacts we develop in our organization
+* Act as adapter of repository formats
+
+
+
+== Use an external Repository Manager
+It is possible that you already have in your organization a reporitory manager in place, and you want to use it. In this scenario, what we are going to do is to create a service in OpenShift to point to your repository manager.
+
+For that we will create this external service (defined in nexus-external-service.json):
+
+[source,json]
+----
+{
+   "kind": "List",
+   "apiVersion": "v1",
+   "metadata": {
+      "name": "nexus-external"
+   },
+   "items": [
+      {
+         "kind": "Service",
+         "apiVersion": "v1",
+         "metadata": {
+            "name": "nexus-external"
+         },
+         "spec": {
+            "ports": [
+               {
+                  "name": "nexus-external",
+                  "port": 8081,
+                  "targetPort": 8081
+               }
+            ]
+         },
+         "selector": {}
+      },
+      {
+         "kind": "Endpoints",
+         "apiVersion": "v1",
+         "metadata": {
+            "name": "nexus-external"
+         },
+         "endpoints": [
+            "maven.repository.redhat.com:8080"
+         ]
+      }
+   ]
+}
+----
+
+And now, we are going to deploy this service in a specific project (I'm going to use a project called ci-tools). This is very important, and we'll see why.
+
+----
+$ oc create -f nexus-external-service.json -n ci-tools
+----
+
+Why is this important? Because we now have a DNS name that can be used in our OpenShift applications, to be more specific, in the maven configuration file (settings.xml) for our application, that will forward our requests to the external repository manager. This service is
+
+----
+nexus-external.ci-tools.svc.cluster.local
+----
+
+== Use an internal Repository Manager
+If we do not have a repository manager in place, or we want to deploy our repository manager in OpenShift, we can do it easily. As we want our repository manager persistence to survive pod failures, we are going to need some persistent volume.
+
+* As cluster admin, we will create a PersistentVolume
+
+[source,json]
+----
+{
+    "kind": "PersistentVolume",
+    "apiVersion": "v1",
+    "metadata": {
+        "name": "nexus-pv"               # <1>
+    },
+    "spec": {
+        "capacity": {
+            "storage": "5Gi"             # <2>
+        },
+        "nfs": {
+            "server": "openshift.local", # <3>
+            "path": "/var/export/nexus"  # <4>
+        },
+        "accessModes": [
+            "ReadWriteMany"              # <5>
+        ],
+        "persistentVolumeReclaimPolicy": "Retain" # <6>
+    }
+}
+----
+<1> Name of the persistent volume
+<2> Capacity assigned for the persistent volume. This value should be adjusted to your requirements.
+<3> NFS server that provides the storage. This value should be adjusted to your requirements.
+<4> Path in the NFS server for the persitent volume. This value should be adjusted to your requirements.
+<5> Access mode to use in the persiste volume. ReadWriteMany allows us to spin many pods of our repository manager using the same storage.
+<6> How to reclaim back the storage used when the persistent volume is deleted.
+
+See https://docs.openshift.com/enterprise/3.0/architecture/additional_concepts/storage.html[storage concepts] and https://docs.openshift.com/enterprise/3.0/admin_guide/persistent_storage_nfs.html[for NFS storage details]
+
+See https://docs.openshift.com/enterprise/3.0/dev_guide/persistent_volumes.html[how to claim persistent storage]
+
+* Next we are going to create a PersistentVolumeClaim that we will be using in our repository manager pods:
+
+[source,json]
+----
+{
+    "kind": "PersistentVolumeClaim",
+    "apiVersion": "v1",
+    "metadata": {
+        "name": "nexus-claim"
+    },
+    "spec": {
+        "accessModes": [
+            "ReadWriteMany"
+        ],
+        "resources": {
+            "requests": {
+                "storage": "5Gi"
+            }
+        },
+        "volumeName": "nexus-pv"
+    }
+}
+----
+
+* And now, we are going to create our Nexus server. First a deployment configuration:
+
+[source,json]
+----
+{
+    "kind": "DeploymentConfig",
+    "apiVersion": "v1",
+    "metadata": {
+        "name": "nexus"
+    },
+    "spec": {
+        "strategy": {
+            "type": "Rolling"
+        },
+        "triggers": [
+            {
+                "type": "ConfigChange"
+            }
+        ],
+        "replicas": 1,
+        "selector": {
+            "name": "nexus"
+        },
+        "template": {
+            "metadata": {
+                "labels": {
+                    "name": "nexus"
+                }
+            },
+            "spec": {
+                "volumes": [
+                    {
+                        "name": "pvol",
+                        "persistentVolumeClaim": {
+                           "claimName": "nexus-claim"
+                        }
+                    }
+                ],
+                "containers": [
+                    {
+                        "name": "nexus-pod",
+                        "image": "sonatype/nexus",
+                        "ports": [
+                            {
+                                "name": "nexus-http-8081",
+                                "containerPort": 8081
+                            }
+                        ],
+                        "volumeMounts": [
+                            {
+                                "name": "pvol",
+                                "mountPath": "/sonatype-work"
+                            }
+                        ],
+                        "livenessProbe": {
+                            "tcpSocket": {
+                                "port": 8081
+                            },
+                            "initialDelaySeconds": 180,
+                            "timeoutSeconds": 1
+                        },
+                        "terminationMessagePath": "/dev/termination-log",
+                        "imagePullPolicy": "IfNotPresent",
+                        "securityContext": {
+                            "capabilities": {},
+                            "privileged": false
+                        }
+                    }
+                ],
+                "restartPolicy": "Always",
+                "dnsPolicy": "ClusterFirst"
+            }
+        }
+    }
+}
+----
+
+And now a service for accesing our repository manager:
+
+[source,json]
+----
+{
+    "kind": "Service",
+    "apiVersion": "v1",
+    "metadata": {
+        "name": "nexus"
+    },
+    "spec": {
+        "ports": [
+            {
+                "name": "nexus-http",
+                "port": 8081,
+                "targetPort": 8081
+            }
+        ],
+        "selector": {
+            "deploymentconfig": "nexus"
+        }
+    }
+}
+----
+
+I have created a file that will create all the resources at once as a List of Resources. These can be easily changed into a template if any of the values need to be changed at creation time. We will install our nexus server in a project called *ci-tools*.
+
+----
+$ oc create -f XXXXX_LINK_TO_THE_COMPLETE_JSON -n ci-tools 
+----
+
+And after everything gets deployed we will have a running nexus server in our OpenShift infrastructure, and accesible in the following DNS:
+
+----
+nexus.ci-tools.svc.cluster.local
+----
+
+== Consume a Repository Manager
