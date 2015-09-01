@@ -1,0 +1,147 @@
+== OpenShift can also do Spring Boot
+
+One of the problems I usually find when talking to OpenShift 3 users and prospects is that they have a lot of different types of applications built with many different frameworks and we usually show what we can do in OpenShift with our own products. Of course, for us it is very easy to show what the product bring out of the box, but to be realistic, many people would like to see how we can bring any of these other technologies into OpenShift and use it seamlessly.
+
+Today, I've decided to create an application (to be more precise a set of microservices) using Spring Boot and deployed on OpenShift 3. I'm going to walk you through all the steps that I've taken, and I will provide with links to all the source code so you can see it in action by yourself and customize/extend it to your needs. 
+
+Please, before I start, note that this is nothing officially supported and that it's merely used as an example of the capabilities OpenShift provides for developers.
+
+This is a summary of what I'm going to show:
+
+* Creating an S2I builder image for Spring Boot
+* Deploying a sample set of applications developed with Spring Boot
+
+Let's get our hands on.
+
+== Spring Boot s2i Builder
+Spring Boot applications are really very similar in structure to any other Java application. The main difference, apart from the libraries you use, is that it will pack everything as a fat jar that will be run directly by the JVM. All the runtime, libraries, dependencies and code will be embedded in this jar file.
+
+I used what _Maziej Szulik_ showed in his https://blog.openshift.com/create-s2i-builder-image/[How to Create an S2I Builder Image] blog. Also, I used as source of inspiration our https://github.com/openshift/sti-wildfly[openshift/wildfly-81-centos7] image.
+
+I created an sti project, and modified the Dockerfile to:
+
+* Install all the binaries I needed. In this case I installed *java 8*, *maven 3.3.3* and *gradle 2.6* on top of *openshift/base-centos7* base image
+* Modify all the labels describing the STI image
+* Used more or less all the defaults for everything else
+
+The dockerfile can be found https://github.com/jorgemoralespou/osev3-examples/blob/master/spring-boot/springboot-sti/Dockerfile[here].
+
+Next step is to be able to build and put the generated artifact in one "known" location inside the image. So I created a modified version of the assemble script used in the wildfly image and added:
+
+* Ability to build with maven and gradle. Maven takes precedence if there is a pom.xml against having a build.gradle file
+* Make configurable the options to both builders via and ENV named BUILDER_ARGS with some appropriate defaults
+* Place the generated artifact in a known location (/opt/openshift/app.jar)
+
+You can see the sti assemble script https://github.com/jorgemoralespou/osev3-examples/blob/master/spring-boot/springboot-sti/.sti/bin/assemble[here].
+
+And finally, I modified the sti run script to run the Spring Boot application, with:
+
+* Execution of the generated artifact in the known location
+* Being able to pass application parameters via an ENV named APP_OPTIONS
+
+You can see the sti run script https://github.com/jorgemoralespou/osev3-examples/blob/master/spring-boot/springboot-sti/.sti/bin/run[here].
+
+Then, following with Maziej's blog, I created a test application (really 2, one for maven building and one for gradle), and tested everything via using the generated Makefile.
+
+Great!!! Now it is time to add this S2I Builder to OpenShift.
+
+At this step you can take 2 approaches (with some variations). Publish your builder into Docker Hub, or just make your builder available to you in OpenShift. As this is what most users will do, if they do it themselves, this is what I'm going to do as well. Keep in mind that this builder can be too generic that can be used by many users, and in this case publishing it to Docker hub makes sense, but I envision that people will not want to complicate themselves so they will probably create builders tailored for their needs.
+
+Now, in order to create the builder in OpenShift, we need to:
+
+* Create a project
+* Create an ImageStream for the builder
+* Create a BuildConfig using my GitHub project as source and using the builder ImageStream as output
+* Provide two sample templates for using the builder, building with maven and gradle. I created an instantapp type of template using a helloworld Spring Boot sample application in my GitHub.
+
+The OpenShift resources are defined https://github.com/jorgemoralespou/osev3-examples/blob/master/spring-boot/springboot-sti/springboot-sti-all.json[here], and these are the steps needed to have it working on your OpenShift 3 installation.
+
+----
+$ oc new-project springboot-sti 
+$ oc create -f https://raw.githubusercontent.com/jorgemoralespou/osev3-examples/master/spring-boot/springboot-sti/springboot-sti-all.json
+----
+
+You can monitor the building process for this springboot-sti image. Once the build is done, and the image is pushed into the internal docker registry in OpenShift, it is ready for use.
+
+image::images/springboot-sti-builder.png[Builder]
+
+You can use on of the quickstart templates:
+
+image::images/springboot-templates.png[Quickstarts]
+
+== A more interesting Spring Boot application
+So far, we have a running Spring Boot application. But the question is, will I be able to build and run more complex applications. Let's explore the answer (even if you guess it will be a Yes).
+
+I created a more complex sample Spring Boot application, consisting of a web application and a messages service that stores information in memory. As I'm not the greatest developer using Spring Boot, I used the samples provided with Spring Boot distribution as source and modified two of them to interact between them. So our web will be a frontend for our messages service. The web service will interact with the messages service via a Rest API. 
+
+I will use the same approach I did before, on https://blog.openshift.com/part-2-creating-a-template-a-technical-walkthrough/[Part 2] of my templates blog to show all the OpenShift resources that I will be creating. I will package everything as an https://github.com/jorgemoralespou/osev3-examples/blob/master/spring-boot/sample-microservices-springboot/ose-instantapp-template.json[instant-app template], so it can be seen in action in an easy way.
+
+image::images/Template-SpringBoot-microservices.png[Templaate]
+
+
+To run it you will just need to load the instant-app, and instantiate it. Of course, you will need to adjust the parameters when creating your template. The required parameters are APPLICATION_NAME for the name of the application, APPLICATION_HOSTNAME will be the external DNS name where the web will be listening and APPLICATION_HOSTNAME_DATA will be the external DNS name for the Rest Endpoint for the data service. 
+
+----
+$ oc create -f https://raw.githubusercontent.com/jorgemoralespou/osev3-examples/master/spring-boot/sample-microservices-springboot/ose-instantapp-template.json
+$ oc new-app --template=springboot-sample-microservices -p APPLICATION_NAME=springbootms,APPLICATION_HOSTNAME=web.example.com,APPLICATION_HOSTNAME_DATA=data.example.com
+----
+
+This sample application will create a web component that will look like this:
+
+image::images/web.png[Web]
+
+And a data services, that can be queried using Rest like this:
+
+----
+$  curl http://data.example.com/
+[{"id":1,"text":"Hello","summary":"World","created":1441125685591},{"id":2,"text":"Hi","summary":"Universe","created":1441125685594},{"id":3,"text":"Hola","summary":"OpenShift","created":1441125685594}]
+
+$ curl  -H "Content-type: application/json" -X POST -d '{"id":10,"text":"aaaaa","summary":"bbbbb"}'  http://data.example.com:1080
+{"id":10,"text":"aaaaa","summary":"bbbbb","created":1441126793364}
+
+$  curl http://data.example.com/
+[{"id":1,"text":"Hello","summary":"World","created":1441125685591},{"id":2,"text":"Hi","summary":"Universe","created":1441125685594},{"id":3,"text":"Hola","summary":"OpenShift","created":1441125685594},{"id":10,"text":"aaaaa","summary":"bbbbb","created":1441126793364}]
+----
+
+Looking at the logs of both pods, you will be able to see the output of your running Spring Boot applications.
+
+Let's first identify our pods. These will be the pods in Running state, with names starting with *springbootms-data* and *springbootms-web*:
+
+----
+$ oc get pods
+NAME                        READY     STATUS       RESTARTS   AGE
+springboot-sti-1-build      0/1       ExitCode:0   0          48m
+springbootms-data-1-1093k   1/1       Running      0          24m
+springbootms-data-1-build   0/1       ExitCode:0   0          28m
+springbootms-web-1-37xi2    1/1       Running      0          24m
+springbootms-web-1-build    0/1       ExitCode:0   0          28m
+----
+
+Let's tail the log for the data service:
+
+----
+$ oc logs springbootms-data-1-1093k
+2015-09-01 16:41:28.019  INFO 1 --- [           main] o.s.j.e.a.AnnotationMBeanExporter        : Registering beans for JMX exposure on startup
+2015-09-01 16:41:28.031  INFO 1 --- [           main] o.s.c.support.DefaultLifecycleProcessor  : Starting beans in phase 0
+2015-09-01 16:41:28.239  INFO 1 --- [           main] s.b.c.e.t.TomcatEmbeddedServletContainer : Tomcat started on port(s): 8080 (http)
+2015-09-01 16:41:28.241  INFO 1 --- [           main] c.o.e.m.r.InMemoryRepositoryApplication  : Started InMemoryRepositoryApplication in 19.117 seconds (JVM running for 20.961)
+2015-09-01 16:55:36.809  INFO 1 --- [nio-8080-exec-4] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring FrameworkServlet 'dispatcherServlet'
+2015-09-01 16:55:36.809  INFO 1 --- [nio-8080-exec-4] o.s.web.servlet.DispatcherServlet        : FrameworkServlet 'dispatcherServlet': initialization started
+2015-09-01 16:55:36.836  INFO 1 --- [nio-8080-exec-4] o.s.web.servlet.DispatcherServlet        : FrameworkServlet 'dispatcherServlet': initialization completed in 27 ms
+----
+
+Let's tail the log for the web service:
+
+----
+$ oc logs springbootms-web-1-37xi2
+2015-09-01 16:41:27.410  INFO 1 --- [           main] o.s.j.e.a.AnnotationMBeanExporter        : Registering beans for JMX exposure on startup
+2015-09-01 16:41:27.693  INFO 1 --- [           main] s.b.c.e.t.TomcatEmbeddedServletContainer : Tomcat started on port(s): 8080 (http)
+2015-09-01 16:41:27.703  INFO 1 --- [           main] c.o.e.m.web.SampleWebUIApplication       : Started SampleWebUIApplication in 17.639 seconds (JVM running for 20.512)
+2015-09-01 16:55:36.567  INFO 1 --- [nio-8080-exec-4] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring FrameworkServlet 'dispatcherServlet'
+2015-09-01 16:55:36.568  INFO 1 --- [nio-8080-exec-4] o.s.web.servlet.DispatcherServlet        : FrameworkServlet 'dispatcherServlet': initialization started
+2015-09-01 16:55:36.594  INFO 1 --- [nio-8080-exec-4] o.s.web.servlet.DispatcherServlet        : FrameworkServlet 'dispatcherServlet': initialization completed in 26 ms
+----
+
+As we have seen, our sample Spring Boot services application are running fine using our Spring Boot s2i builder image.
+
+I hope you have enjoyed!!!
