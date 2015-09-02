@@ -1,4 +1,5 @@
-== Using OpenShift for Enterprise Grade Spring Boot Deployments
+= Using OpenShift for Enterprise Grade Spring Boot Deployments
+
 We live in a polyglot world where developers are using a vast amount of different technologies to create applications that perform well while also having the ability to scale to meet the demands of their application users. Of course, it is very easy to show the supported languages and runtimes that OpenShift provides out of the box, but to be realistic, many developers  would like to see how we can bring other leading technologies into OpenShift and use it seamlessly.  With all of the work we have done in the upstream Docker and Kubernetes projects, providing the ability to run virtually any runtime or framework on the OpenShift platform is now a reality.
 
 Today, I’ve decided to create an application (to be more precise a set of microservices) using the popular Spring Boot technology and deploy it on OpenShift 3. In this post, I’m going to walk you through all of the steps required, as well as provide the source code so you can see it in action by yourself and customize/extend it to your needs.
