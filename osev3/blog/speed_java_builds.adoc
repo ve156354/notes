@@ -2,7 +2,7 @@
 Since we released OpenShift 3 back in July 2015 one of the most common questions I get from developers is how to get better build time for Java based builds. In this post I will guide you into the process of
 speeding up Java Maven based builds and will explain other options that can be taken to the ones that I'll be showing.
 
-As you might know, OpenShift 3 Enterprise provides xPaaS, which is a set of Java based images for JBoss EAP, JBoss EWS (Tomcat), JBoss Fuse Integration Services, JBoss A-MQ, JBoss Decision Server and JBoss Data Grid. Also, OpenShift Origin provides with additional JBoss based images for Wildfly, our application server community project. All these images are S2I enable, that means that will get your application source code built and layered into the application container, and they rely on maven for their building purposes. 
+As you might know, OpenShift 3 Enterprise provides Middleware Services, which is a set of Java based images for JBoss EAP, JBoss EWS (Tomcat), JBoss Fuse Integration Services, JBoss A-MQ, JBoss Decision Server and JBoss Data Grid. Also, OpenShift Origin provides an additional JBoss based images for Wildfly, our application server community project. All these images are https://github.com/openshift/source-to-image/[source-to-image (S2I)] enable, that means that will get your application source code built and layered into the application container, and they rely on Maven for their building purposes. 
 
 When working with Maven, it is very common to use a Central Artifact Repository Manager to your organization for centralizing and managing all the required and generated dependencies, as well as providing you with isolation from the real location of the artifacts in the Internet and some security mechanisms, amongst other features. During my life as a developer and consultant I've been working with Nexus Artifact Manager for this purpose. I will not say that it's the better or worse, but only that it is the one more familiar to me, and because of that, I will be using it in my OpenSHift install.
 
@@ -33,7 +33,7 @@ image:images/nexus_imagestreams.png[ImagesStreams]
 
 image:images/template.png[Templates]
 
-The templates that are provided as part of the loaded resources will allow you to deploy an instance of the Nexus image built, using the nexus ServiceAccount, and configured to have a service on port 8081 and a route on whatever hostname you decide, for external access. Also, these templates will allow you to have a persistent instance of Nexus, using a PersistentVolume or working in an ephemeral mode, where if the nexus replica dies, you'll lose all of your cached dependencies. For testing purposes, it's much easier to setup the ephemeral instance, but for a more real usage, you should consider only the persistent image.
+The templates that are provided as part of the loaded resources will allow you to deploy an instance of the Nexus image built, using the nexus ServiceAccount, and configured to have a service on port 8081 and a route on whatever hostname you decide, for external access. Also, these templates will allow you to have a persistent instance of Nexus, using a https://docs.openshift.org/latest/dev_guide/volumes.html[PersistentVolume] or working in an ephemeral mode, where if the nexus replica dies, you'll lose all of your cached dependencies. For testing purposes, it's much easier to setup the ephemeral instance, but for a more real usage, you should consider only the persistent image.
 
 
 There is full instructions on how to set the persistent volume and all the requirements in the https://github.com/jorgemoralespou/nexus-ose[README file in the Github repository]
@@ -140,12 +140,41 @@ On the third and fourth build, all the dependencies were already cached in Nexus
 
 As can be seen, there is a big impact on using an artifact repository manager for improving the build time of Java based applications.
 
+== Using incremental build
+Another option that we have to improve Maven based Java builds in OpenShift is to enable the incremental mode, available in certain images by providing a https://docs.openshift.com/enterprise/3.1/creating_images/s2i.html#s2i-scripts[save-artifacts] script. What this incremental mode will do is to store all the pulled down dependencies in an archived file in the image itself, so that when a new build is triggered, the build process will restore the dependencies from the archived file and do a build. This will have the same behavior as having a local maven repository into the build image itself with the drawback of storing these artifacts in the image being built, and incurring into some image size penalty.
+
+To test this mode, I have created a https://raw.githubusercontent.com/jorgemoralespou/nexus-ose/master/other/eap-incremental/eap-incremental-resources.json[sample resources file] that can be easily tested. 
+
+----
+$ oc new-project eap-incremental-builds --display-name="EAP incremental builds" --description="Building Applications in EAP using incremental build mode"
+
+$ oc create -f https://raw.githubusercontent.com/jorgemoralespou/nexus-ose/master/other/eap-incremental/eap-incremental-resources.json
+----
+
+After we've created the resources, let's do some builds and look at the times.
+
+image:images/eap_incremental_build.png[EAP incremental build]
+
+As can be seen in the image above, the times for the second and third build, which are the builds benefiting from the stored artifacts takes much less time, *48 and 47 seconds*, but it's the same time it takes when using the artifact repository manager, so there is no additional benefit in time, although it is much simpler for those images that support incremental mode, as the developer will only need to specify https://github.com/jorgemoralespou/nexus-ose/blob/master/other/eap-incremental/eap-incremental-resources.json#L57[a flag in the BuildConfig].
+
+The main difference is that the first step in the build process is to extract the archived dependencies.
+
+image:images/eap_incremental_build_log.png[EAP incremental buildlog]
+
+In this example, the application and pulled down dependencies are not adding a big overhead in size to the initial eap64-openshift S2I image, only 7 MB.
+
+image:images/eap_image_sizes.png[EAP incremental build]
+
+But we need to be careful with this approach as there are other images or applications that will have much more dependencies, and the size of the generated image can grow enormously. 130 MB in the following example using Fuse Integration Services.
+
+image:images/fis_image_sizes.png[FIS incremental build]
+
 == Summary
 For every application that we build we will be getting a performance benefit by caching into an artifact repository manager it's dependencies. Initially we will be perceiving a performance benefit for the second and subsequent builds of every application, but as the artifact repository manager stores more and more dependencies this benefit will be also seen in initial builds of new applications, and most of the dependencies will already be cached.
 
-Also, we can use incremental builds to get better performance on Java based builds, but this will be slower on multi host environments as incremental builds saves all the downloaded artifacts into the image itself, and in a multi host environment it will incur in push and pull times for this new image. Also, eventually the size of the image will grow, as all the dependencies need to be stored in the image. 
+Also, we can use incremental builds to get better performance on Java based builds, but it is important to understand that even this approach is easier to set up there are some drawbacks for this approach, like the need for the image to support incremental mode and a bigger image size. 
 
-In this blog, I've highlighted how we can improve the build time of Maven based Java builds in OpenShift, but also a very important topic is the use of the internal DNS service names to reference from one project to another. The only caveat to this, is that if we are using the multitenant OVS networking plugin, our cluster administrators will have to make visible our *ci* project to all other projects:
+In this blog, I've highlighted how we can improve the build time of Maven based Java builds in OpenShift, but also a very important topic is the use of the internal DNS service names to reference from one project to another. The only caveat to this, is that if we are using the multi-tenant OVS networking plugin, our cluster administrators will have to make visible our *ci* project to all other projects:
 
 ----
 $ oadm pod-network make-projects-global ci 
