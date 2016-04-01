@@ -11,9 +11,9 @@ ____
 
 In short, when we execute a container, we want to guarantee that the capabilities required by that container to run are satisfied, while at the same time we also want OpenShift to be a secure Container Application platform. For this reason we can not allow any container to get access to unnecessary capabilities or to run in an insecure way (e.g. privileged or as root).
 
-OpenShift guarantees that the capabilities required by a container are granted to the user that executes the container at link:https://docs.openshift.org/latest/architecture/additional_concepts/authorization.html#admission[admission time]. Admission is done based on the identity of the user executing the pod.
+OpenShift guarantees that the capabilities required by a container are granted to the user that executes the container at link:https://docs.openshift.org/latest/architecture/additional_concepts/authorization.html#admission[admission time]. Admission is done based on the identity of the user executing the pod and the pod’s service account.
 
-The OpenShift Container Application Platform provides a set of predefined Security Context Constraints that can be used, modified or extended by any administrator.  The capabilities that can be used are as follows:
+The OpenShift Container Application Platform provides a set of predefined Security Context Constraints that can be used, modified or extended by any administrator. The capabilities that can be used are as follows:
 
 ----
 $ oc get scc
@@ -125,8 +125,7 @@ This leads to the conclusion of this blog with my advice:
 
 As an example, we might want to run an application that needs access to mount hostPath types of volumes, or we might want to run an application with a specified user and not a random user that OpenShift will use as default (as detailed in link:https://blog.openshift.com/getting-any-docker-image-running-in-your-own-openshift-cluster/[this blog]), or we might want to restrict the container's filesystem to be readonly, and forcing every write to be on external storage. There are many situations that might require us to change the capabilities provided by default.
 
-“Every time you have an application/process that requires a capability not granted by the restricted SCC, create a specific service account and set it for the deployment configuration (as described above). Then add the service account to the appropriate SCC. But, if there is no SCC that perfectly suits your needs, instead of using the best fit one, create a new SCC tailored for your requirements.”
-
+“Every time you have an application/process that requires a capability not granted by the restricted SCC, create a specific service account, then add the service account to the appropriate SCC, but, if there is no SCC that perfectly suits your needs, instead of using the best fit one, link:https://docs.openshift.org/latest/admin_guide/manage_scc.html#creating-new-security-context-constraints[create a new SCC] tailored for your requirements, and finally set it for the deployment configuration (as described above).”
 
 ----
 $ oc create serviceaccount useroot
