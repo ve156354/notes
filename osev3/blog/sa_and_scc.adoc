@@ -11,9 +11,9 @@ ____
 
 In short, when we execute a container, we want to guarantee that the capabilities required by that container to run are satisfied, while at the same time we also want OpenShift to be a secure Container Application platform. For this reason we can not allow any container to get access to unnecessary capabilities or to run in an insecure way (e.g. privileged or as root).
 
-OpenShift guarantees that the capabilities required by a container are granted to the user that executes the container at link:https://docs.openshift.org/latest/architecture/additional_concepts/authorization.html#admission[admission time]. Admission is done based on the identity of the user executing the pod and the pod’s service account.
+OpenShift guarantees that the capabilities required by a container are granted to the user that executes the container at link:https://docs.openshift.org/latest/architecture/additional_concepts/authorization.html#admission[admission time]. Admission is done based on the identity of the user executing the pod and the pod’s service account (introduced later in this blog).
 
-The OpenShift Container Application Platform provides a set of predefined Security Context Constraints that can be used, modified or extended by any administrator. The capabilities that can be used are as follows:
+The OpenShift Container Application Platform provides a set of predefined Security Context Constraints that can be used, modified or extended by any administrator. The SCCs that can be used are as follows:
 
 ----
 $ oc get scc
@@ -27,8 +27,6 @@ restricted        false  []    false    MustRunAs  MustRunAsRange    RunAsAny  R
 ----
 
 By default, the execution of any container will be granted the *restricted* SCC and only the capabilities defined by that SCC.
-
-NOTE: SCC are Security Context Constraints as explained in the previous section.
 
 ----
 $ oc describe scc restricted
@@ -88,13 +86,13 @@ As you can see, there are many use cases for Service Accounts, and if we dive in
 
 image:images/Eventual_consistency.png[Asynch state consolidation]
 
-When a user wants to deploy a Pod, what actually happens under the covers is the creation of a DeploymentConfig resource definition that will be stored in *etcd* via the APIserver (in this sense, *etcd* is the configuration database for what should be existing inside OpenShift). This definition expresses a desired state by a user (as can be seen in the picture above as step 1). A set of controllers (admission, replication controller, scheduler,...), running on the master server, will then be monitoring these definitions stored in *etcd* and will execute the corresponding actions on the OpenShift platform in order to provide consistency between the desired and actual states (as can be seen in the picture above as step 2). This will happen as soon as the controllers try to consolidate the cluster state.
+When a user wants to deploy an application, he creates a DeploymentConfig resource, which describes a desired state (as can be seen in the picture above - step 1). From this point, a set of controllers (admission, replication controller, scheduler,...), running on the master server, will be monitoring those definitions and will execute necessary actions on the OpenShift platform in order to provide consistency between the desired and actual state (as can be seen in the picture above - step 2). This will happen as soon as the controllers try to consolidate the cluster state.
 
-What this really means is that the actions taken are actually being executed by OpenShift controllers and not really by the actual user that expressed the desired state. This leads to the situation that we need to somehow identify who's executing the actions the controllers are doing.
+What this really means is, the actions are executed by the OpenShift controllers and not by the actual user, that expressed the desired state. This leads to the situation where we need to identify who's executing the actions the controllers are invoking.
 
-By default, OpenShift uses 3 service accounts per project for executing the main 3 actions (building a pod, deploying a pod, and any other action) as can be read in link:https://docs.openshift.org/latest/dev_guide/service_accounts.html#default-service-accounts-and-roles[the official documentation].
+By default, OpenShift creates three service accounts per project for building, deploying and running an application (see link:https://docs.openshift.org/latest/dev_guide/service_accounts.html#default-service-accounts-and-roles[the official documentation] for more details).
 
-When a user creates configuration objects in OpenShift it will, by default, use these default Service Accounts, but a different one can be specified within the configuration object itself.
+When a user creates anyobject in OpenShift it will use these default Service Accounts, but a different one can be specified within the object configuration.
 
 ----
 {
@@ -117,15 +115,15 @@ When a user creates configuration objects in OpenShift it will, by default, use 
 ----
 
 
-One reason to use a dedicated service account in a deployment configuration is to allow an application/process running within a pod access to use a set of privileges or capabilities other than those granted to the *default* service account. This default service account will only have access to all the capabilities defined by the *restricted* SCC.
+One reason to use a dedicated service account in a deployment configuration is to allow an application running within a pod to use a set of privileges or capabilities other than those granted by the *default* service account. This default service account will only have access to all the capabilities defined by the *restricted* SCC, as out of the box OpenShift will add every authenticated user to the restricted SCC (as can bee seen in the output of the execution of “oc describe scc restricted” shown above). This includes the default service account which is not explicitly included in any other SCC.
 
-As a service account is a regular user, it can be added to any specific SCC in a similar way as we have described previously.
+Since every service account has an associated username, it can be added to any specific SCC in a similar way as we have done previously with users and groups.
+
+As an example, we might want to run an application that needs access to mount hostPath volumes, or we might want to run an application with a specified user and not a random user OpenShift will use as default (as detailed in link:https://blog.openshift.com/getting-any-docker-image-running-in-your-own-openshift-cluster/[this blog]), or we might want to restrict the container's filesystem to be readonly, and forcing every write to be on external storage. There are many other situations that might require us to change the capabilities provided by default.
 
 This leads to the conclusion of this blog with my advice:
 
-As an example, we might want to run an application that needs access to mount hostPath types of volumes, or we might want to run an application with a specified user and not a random user that OpenShift will use as default (as detailed in link:https://blog.openshift.com/getting-any-docker-image-running-in-your-own-openshift-cluster/[this blog]), or we might want to restrict the container's filesystem to be readonly, and forcing every write to be on external storage. There are many situations that might require us to change the capabilities provided by default.
-
-“Every time you have an application/process that requires a capability not granted by the restricted SCC, create a specific service account, then add the service account to the appropriate SCC, but, if there is no SCC that perfectly suits your needs, instead of using the best fit one, link:https://docs.openshift.org/latest/admin_guide/manage_scc.html#creating-new-security-context-constraints[create a new SCC] tailored for your requirements, and finally set it for the deployment configuration (as described above).”
+“Every time you have an application/process that requires a capability not granted by the restricted SCC, create a new, specific service account and add it to the appropriate SCC. But, if there is no SCC that perfectly suits your needs, instead of using the best fit one, link:https://docs.openshift.org/latest/admin_guide/manage_scc.html#creating-new-security-context-constraints[create a new SCC] tailored for your requirements, and finally set it for the deployment configuration (as described above).”
 
 ----
 $ oc create serviceaccount useroot
@@ -135,7 +133,7 @@ $ oc patch dc/myAppNeedsRoot --patch '{"spec":{"template":{"spec":{"serviceAccou
 $ oc adm policy add-scc-to-user anyuid -z useroot
 ----
 
-Above you can see my advice in action, creating an new service account named __useroot__, modifying the deployment configuration for __myAppNeedsRoot__ and then adding the serviceaccount to the __anyuid__ SCC as the application defined needs to run as user root in the container.
+Above you can see my advice in action, creating a new service account named __useroot__, modifying the deployment configuration for __myAppNeedsRoot__ and then adding the serviceaccount to the __anyuid__ SCC as the application defined needs to run as user root in the container. Note that I haven't created a specific SCC since anyuid meets my needs.
 
 NOTE: The previous example is using notation available in OpenShift Origin 1.1.4+ and OpenShift Enterprise 3.2+.
 
