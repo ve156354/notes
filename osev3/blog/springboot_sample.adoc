@@ -1,12 +1,12 @@
 = Using OpenShift for Enterprise Grade Spring Boot Deployments
 
-We live in a polyglot world where developers are using a vast amount of different technologies to create applications that perform well while also having the ability to scale to meet the demands of their application users. Of course, it is very easy to show the supported languages and runtimes that OpenShift provides out of the box, but to be realistic, many developers  would like to see how we can bring other leading technologies into OpenShift and use it seamlessly.  With all of the work we have done in the upstream Docker and Kubernetes projects, providing the ability to run virtually any runtime or framework on the OpenShift platform is now a reality.
+We live in a polyglot world where developers are using a vast array of different technologies to create applications that perform well, while also having the ability to scale to meet the demands of their application users. Of course, it is very easy to show the supported languages and runtimes that OpenShift provides out of the box, but to be realistic, many developers would like to see how we can bring other leading technologies into OpenShift and use them seamlessly. We built OpenShift 3 around Docker to embrace a standard container runtime and packaging format and give OpenShift developers access to the huge ecosystem of Docker-packaged software stacks. Kubernetes then adds web scale orchestration to OpenShift, which is critical for deploying complex microservices that span multiple containers across multiples hosts. As a result, the ability to run virtually any runtime or framework on the OpenShift platform is now a reality.
 
 Today, I’ve decided to create an application (to be more precise a set of microservices) using the popular Spring Boot technology and deploy it on OpenShift 3. In this post, I’m going to walk you through all of the steps required, as well as provide the source code so you can see it in action by yourself and customize/extend it to your needs.
 
 This is a summary of what I’m going to show:
 
-* Creating an S2I builder image for Spring Boot based applications
+* Creating a Source-to-Image (S2I) builder image for Spring Boot based applications
 * Deploying a sample set of applications developed with Spring Boot
 
 Let’s get our hands dirty and start playing with some of this technology.
@@ -14,7 +14,7 @@ Let’s get our hands dirty and start playing with some of this technology.
 == Spring Boot S2I Builder
 Spring Boot applications are really very similar in structure to any other Java application. The main difference, apart from the libraries you use, is that it will pack everything as a single fat jar that will be run directly by the JVM. All of the runtime, libraries, dependencies and code will be embedded into this single jar file.
 
-I used what https://twitter.com/soltysh[_Maciej Szulik_] showed in his https://blog.openshift.com/create-s2i-builder-image/[How to Create an S2I Builder Image] blog post. Also, I used the https://github.com/openshift/sti-wildfly[openshift/wildfly-81-centos7] image as a source of inspiration.
+OpenShift S2I automatically generates a new Docker image for deployment, using source code provided by the developer and a corresponding Docker builder image in OpenShift. I used what https://twitter.com/soltysh[_Maciej Szulik_] showed in his https://blog.openshift.com/create-s2i-builder-image/[How to Create an S2I Builder Image] blog post. Also, I used the https://github.com/openshift/sti-wildfly[openshift/wildfly-81-centos7] image as a source of inspiration.
 
 I created an S2I project, and modified the Dockerfile:
 
@@ -38,7 +38,7 @@ And finally, I modified the S2I run script to run the Spring Boot application, w
 
 You may want to look in greater detail the S2I https://github.com/jorgemoralespou/osev3-examples/blob/master/spring-boot/springboot-sti/.sti/bin/run[run] script.
 
-Then, following instructions on  Maciej’s blog post, I created a test application (really two, one for maven building and one for gradle), and tested everything via using the generated Makefile.
+Then, following instructions on https://blog.openshift.com/create-s2i-builder-image/[Maciej's blog post], I created a test application (really two, one for maven building and one for gradle), and tested everything via using the generated Makefile.
 
 *Great!!! Now it is time to add this S2I Builder to OpenShift 3.*
 
